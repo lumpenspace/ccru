@@ -4,7 +4,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'CCRU Numogram',
   description: 'Interactive visualization of the Decimal Labyrinth — explore zones, syzygies, currents, gates and demons across four layouts with planetary orbital mechanics.',
-  metadataBase: new URL('https://ccru-is8ft9q4v-lumpenspaces-projects.vercel.app'),
+  metadataBase: new URL('https://num.qliphoth.systems'),
   openGraph: {
     title: 'CCRU Numogram',
     description: 'Interactive visualization of the Decimal Labyrinth — zones, syzygies, currents, gates and planetary orbits.',
