@@ -3,7 +3,19 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'CCRU Numogram',
-  description: 'The Decimal Labyrinth',
+  description: 'Interactive visualization of the Decimal Labyrinth — explore zones, syzygies, currents, gates and demons across four layouts with planetary orbital mechanics.',
+  metadataBase: new URL('https://ccru-is8ft9q4v-lumpenspaces-projects.vercel.app'),
+  openGraph: {
+    title: 'CCRU Numogram',
+    description: 'Interactive visualization of the Decimal Labyrinth — zones, syzygies, currents, gates and planetary orbits.',
+    siteName: 'CCRU Numogram',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CCRU Numogram',
+    description: 'Interactive visualization of the Decimal Labyrinth — zones, syzygies, currents, gates and planetary orbits.',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
