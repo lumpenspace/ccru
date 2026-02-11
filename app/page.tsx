@@ -1,247 +1,301 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+
+// Data
+import type { Layout, Layer, Region, Pos, HoverInfo, GateRender, CurrentRender } from './data/types'
+import { ZONE_REGION } from './data/zones'
+import { PLANETARY_DEFAULT_ANGLE } from './data/positions'
+import { CURRENTS } from './data/currents'
+import { GATE_LIST } from './data/gates'
+
+// Lib
+import { midpoint, syzMidBiased, loopPath, curveAway } from './lib/geometry'
+import { getAnglesForDate } from './lib/planetary'
+
+// Hooks
+import { useIntro } from './hooks/useIntro'
+import { useOrbitalAnimation } from './hooks/useOrbitalAnimation'
+import { useTween } from './hooks/useTween'
+import { useParallax } from './hooks/useParallax'
+import { usePanelDrag } from './hooks/usePanelDrag'
+import { useCanvasZoom } from './hooks/useCanvasPan'
+
+// Components
+import { Button } from './components/Button'
+import { ButtonSet } from './components/ButtonSet'
+import { Panel } from './components/Panel'
+import { Projection } from './components/projection/Projection'
+import { InfoDisplay } from './components/info/InfoDisplay'
+import { PinnedBackground } from './components/info/PinnedBackground'
+import { LayersPanel } from './components/panels/LayersPanel'
+import { RegionsPanel } from './components/panels/RegionsPanel'
+import { ZonesPanel } from './components/panels/ZonesPanel'
+import { SyzygiesPanel } from './components/panels/SyzygiesPanel'
+import { CurrentsPanel } from './components/panels/CurrentsPanel'
+import { GatesPanel } from './components/panels/GatesPanel'
 
 /* ═══════════════════════════════════════════════════════════════
    THE NUMOGRAM — The Decimal Labyrinth (CCRU)
-   10 zones, 5 syzygies, 5 currents, 10 gates, 45 demons
-   Three time-systems: Torque, Warp, Plex
    ═══════════════════════════════════════════════════════════════ */
 
-type Region = 'torque' | 'warp' | 'plex'
-type Pos = { x: number; y: number }
-type Layout = 'labyrinth' | 'ladder' | 'original'
-
-// ── Zone data ──────────────────────────────────────────────────
-const ZONE_CLR: Record<number, string> = {
-  0: '#aaaaaa', 1: '#ee44ee', 2: '#4488ff', 3: '#44cc77', 4: '#ee4444',
-  5: '#ee8833', 6: '#ddcc33', 7: '#7755cc', 8: '#9944ee', 9: '#666666',
+// Layout icon SVGs
+function OriginalIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <polygon
+        points={Array.from({ length: 10 }, (_, i) => {
+          const a = (i * 36 - 90) * Math.PI / 180
+          const r = i % 2 === 0 ? 11 : 5.5
+          return `${12 + Math.cos(a) * r},${12 + Math.sin(a) * r}`
+        }).join(' ')}
+        fill="none" stroke={clr} strokeWidth="1.2" strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="1.5" fill={clr} opacity="0.6" />
+    </svg>
+  )
 }
-const ZONE_REGION: Record<number, Region> = {
-  0: 'plex', 1: 'torque', 2: 'torque', 3: 'warp', 4: 'torque',
-  5: 'torque', 6: 'warp', 7: 'torque', 8: 'torque', 9: 'plex',
+function LabyrinthIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3 C18 3 21 6 21 12 C21 18 17 21 12 21 C7 21 4.5 17.5 4.5 12 C4.5 7.5 7.5 5 12 5 C16 5 18.5 7.5 18.5 12 C18.5 16 15.5 18.5 12 18.5 C8.5 18.5 7 15.5 7 12 C7 9 9 7.5 12 7.5 C14.5 7.5 16 9.5 16 12 C16 14 14 15.5 12 15.5 C10.5 15.5 9.5 14 9.5 12 C9.5 10.5 10.5 9.5 12 9.5"
+        stroke={clr} strokeWidth="1.1" strokeLinecap="round" fill="none" />
+    </svg>
+  )
 }
-const ZONE_PARTICLE: Record<number, string> = {
-  0: 'eiaoung', 1: 'gl', 2: 'dt', 3: 'zx', 4: 'skr',
-  5: 'ktt', 6: 'tch', 7: 'pb', 8: 'mnm', 9: 'tn',
+function LadderIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <line x1="8" y1="4" x2="8" y2="22" stroke={clr} strokeWidth="1.2" />
+      <line x1="16" y1="4" x2="16" y2="22" stroke={clr} strokeWidth="1.2" />
+      {[7, 11, 15, 19].map(y => (
+        <line key={y} x1="8" y1={y} x2="16" y2={y} stroke={clr} strokeWidth="0.8" opacity="0.6" />
+      ))}
+      <path d="M8.5 3.5 Q12 0 15.5 3.5" stroke={clr} strokeWidth="0.9" fill="none" />
+      <path d="M8.5 3.5 Q12 6 15.5 3.5" stroke={clr} strokeWidth="0.9" fill="none" />
+      <circle cx="12" cy="3.5" r="1" fill={clr} opacity="0.7" />
+    </svg>
+  )
 }
-
-// ── Position maps ─────────────────────────────────────────────
-
-// Labyrinth: Warp top → Time Circuit hexagon → Plex bottom
-const P_LABYRINTH: Record<number, Pos> = {
-  6: { x: 330, y: 52 }, 3: { x: 470, y: 52 },
-  8: { x: 400, y: 168 },
-  7: { x: 252, y: 252 }, 1: { x: 548, y: 252 },
-  2: { x: 252, y: 400 }, 4: { x: 548, y: 400 },
-  5: { x: 400, y: 484 },
-  9: { x: 330, y: 600 }, 0: { x: 470, y: 600 },
-}
-
-// Ladder: two columns, syzygies horizontal
-const P_LADDER: Record<number, Pos> = {
-  4: { x: 300, y: 100 }, 5: { x: 500, y: 100 },
-  3: { x: 300, y: 220 }, 6: { x: 500, y: 220 },
-  2: { x: 300, y: 340 }, 7: { x: 500, y: 340 },
-  1: { x: 300, y: 460 }, 8: { x: 500, y: 460 },
-  0: { x: 300, y: 580 }, 9: { x: 500, y: 580 },
-}
-
-// Original: CCRU diagram — syzygy pairs close, vertical flow
-const P_ORIGINAL: Record<number, Pos> = {
-  // Warp pair (top)
-  3: { x: 320, y: 125 }, 6: { x: 430, y: 78 },
-  // Right pair
-  2: { x: 530, y: 290 }, 7: { x: 578, y: 390 },
-  // Left pair
-  5: { x: 260, y: 375 }, 4: { x: 190, y: 465 },
-  // Center pair
-  1: { x: 400, y: 545 }, 8: { x: 400, y: 650 },
-  // Plex pair (bottom)
-  9: { x: 400, y: 755 }, 0: { x: 400, y: 855 },
+function PlanetaryIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="5" stroke={clr} strokeWidth="1.2" fill="none" />
+      <circle cx="12" cy="12" r="1.5" fill={clr} opacity="0.5" />
+      <line x1="12" y1="7" x2="12" y2="17" stroke={clr} strokeWidth="0.7" opacity="0.4" />
+      <line x1="7" y1="12" x2="17" y2="12" stroke={clr} strokeWidth="0.7" opacity="0.4" />
+      <ellipse cx="12" cy="12" rx="10.5" ry="10.5" stroke={clr} strokeWidth="0.6" strokeDasharray="2 2.5" opacity="0.5" />
+      <circle cx="22" cy="10" r="1.8" fill={clr} opacity="0.6" />
+    </svg>
+  )
 }
 
-const CENTER: Record<Layout, Pos> = {
-  labyrinth: { x: 400, y: 326 },
-  ladder: { x: 400, y: 340 },
-  original: { x: 400, y: 460 },
+function OrbitIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path d="M12 5C16.4 5 20 8.1 20 12C20 15.9 16.4 19 12 19C7.6 19 4 15.9 4 12C4 8.1 7.6 5 12 5" stroke={clr} strokeWidth="1.2" strokeLinecap="round" fill="none" />
+      <path d="M18.5 7L20 5M20 5L18 5.5M20 5L19.5 7" stroke={clr} strokeWidth="1" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="2" fill={clr} opacity="0.5" />
+    </svg>
+  )
 }
-
-// ── Syzygies ─────────────────────────────────────────────────
-const SYZYGIES = [
-  { a: 4, b: 5, demon: 'Katak' },
-  { a: 3, b: 6, demon: 'Djynxx' },
-  { a: 2, b: 7, demon: 'Oddubb' },
-  { a: 1, b: 8, demon: 'Murrumur' },
-  { a: 0, b: 9, demon: 'Uttunul' },
-]
-
-// ── Currents (directed flows from syzygy differences) ──────────
-const CURRENTS = [
-  { name: 'Surge', from: 8, to: 7, label: '8−1=7' },
-  { name: 'Hold', from: 2, to: 5, label: '7−2=5' },
-  { name: 'Sink', from: 4, to: 1, label: '5−4=1' },
-]
-
-// ── Gates (digital cumulation) ────────────────────────────────
-interface GateData {
-  name: string; from: number; to: number; cum: number; desc: string
+function TodayIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10.5" stroke="#555" strokeWidth="0.8" fill="none" />
+      <circle cx="12" cy="12" r="7.5" stroke="#555" strokeWidth="0.6" fill="none" />
+      {Array.from({ length: 12 }, (_, i) => {
+        const a = (i * 30 - 90) * Math.PI / 180
+        return <line key={i} x1={12 + Math.cos(a) * 7.5} y1={12 + Math.sin(a) * 7.5} x2={12 + Math.cos(a) * 10.5} y2={12 + Math.sin(a) * 10.5} stroke="#555" strokeWidth="0.6" />
+      })}
+      <line x1="3" y1="12" x2="21" y2="12" stroke="#555" strokeWidth="0.9" />
+      <path d="M2 12L5 10.2V13.8Z" fill="#555" />
+      <line x1="12" y1="3" x2="12" y2="21" stroke="#555" strokeWidth="0.5" opacity="0.4" />
+      <circle cx="12" cy="12" r="1.2" fill="#555" />
+    </svg>
+  )
 }
-const GATE_LIST: GateData[] = [
-  { name: 'Gt-00', from: 0, to: 0, cum: 0, desc: 'Zeroth Gate' },
-  { name: 'Gt-01', from: 1, to: 1, cum: 1, desc: 'First Gate' },
-  { name: 'Gt-03', from: 2, to: 3, cum: 3, desc: 'Lo-Way to the Crypt' },
-  { name: 'Gt-06', from: 3, to: 6, cum: 6, desc: 'Gate to the Swirl' },
-  { name: 'Gt-10', from: 4, to: 1, cum: 10, desc: 'Gate of Submergence' },
-  { name: 'Gt-15', from: 5, to: 6, cum: 15, desc: 'Fifth Gate' },
-  { name: 'Gt-21', from: 6, to: 3, cum: 21, desc: 'Sixth Gate' },
-  { name: 'Gt-28', from: 7, to: 1, cum: 28, desc: 'Gate of Relapse' },
-  { name: 'Gt-36', from: 8, to: 9, cum: 36, desc: 'Gate of Charon' },
-  { name: 'Gt-45', from: 9, to: 9, cum: 45, desc: 'Gate of Pandemonium' },
-]
-
-// ── Pandemonium Matrix (all 45 demons) ─────────────────────────
-const DEMON_NAMES: Record<string, string> = {
-  '9:0': 'Uttunul', '8:1': 'Murrumur', '7:2': 'Oddubb', '6:3': 'Djynxx', '5:4': 'Katak',
-  '1:0': 'Lurgo',
-  '2:0': 'Duoddod', '2:1': 'Doogu',
-  '3:0': 'Ixix', '3:1': 'Ixigool', '3:2': 'Ixidod',
-  '4:0': 'Krako', '4:1': 'Sukugool', '4:2': 'Skoodu', '4:3': 'Skarkix',
-  '5:0': 'Tokhatto', '5:1': 'Tukkamu', '5:2': 'Kuttadid', '5:3': 'Tikkitix',
-  '6:0': 'Tchu', '6:1': 'Djungo', '6:2': 'Djuddha', '6:4': 'Tchakki', '6:5': 'Tchattuk',
-  '7:0': 'Puppo', '7:1': 'Bubbamu', '7:3': 'Pabbakis', '7:4': 'Ababbatok',
-  '7:5': 'Papatakoo', '7:6': 'Bobobja',
-  '8:0': 'Minommo', '8:2': 'Nammamad', '8:3': 'Mummumix', '8:4': 'Numko',
-  '8:5': 'Muntuk', '8:6': 'Mommoljo', '8:7': 'Mombbo',
-  '9:1': 'Tuttagool', '9:2': 'Unnunddo', '9:3': 'Ununuttix', '9:4': 'Unnunaka',
-  '9:5': 'Tukutu', '9:6': 'Unnutchi', '9:7': 'Nuttubab', '9:8': 'Ummnu',
+function ResetIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path d="M4 12C4 7.6 7.6 4 12 4C16.4 4 20 7.6 20 12C20 16.4 16.4 20 12 20C9.2 20 6.8 18.6 5.4 16.5" stroke="#555" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+      <path d="M4 8V12H8" stroke="#555" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  )
 }
-const TC = new Set([1, 2, 4, 5, 7, 8])
-interface Demon { a: number; b: number; name: string; kind: string }
-const ALL_DEMONS: Demon[] = []
-for (let i = 1; i < 10; i++)
-  for (let j = 0; j < i; j++) {
-    const key = `${i}:${j}`
-    const isSyz = i + j === 9
-    const kind = isSyz ? 'syzygy'
-      : (TC.has(i) && TC.has(j)) ? 'chrono'
-      : (!TC.has(i) && !TC.has(j)) ? 'xeno' : 'amphi'
-    ALL_DEMONS.push({ a: i, b: j, name: DEMON_NAMES[key] || '?', kind })
-  }
-
-// ── Path helpers ──────────────────────────────────────────────
-
-function midpoint(a: Pos, b: Pos): Pos {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+function OrbitsIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="4" stroke={clr} strokeWidth="0.8" strokeDasharray="2 2" fill="none" />
+      <circle cx="12" cy="12" r="7.5" stroke={clr} strokeWidth="0.8" strokeDasharray="2 2" fill="none" />
+      <circle cx="12" cy="12" r="10.5" stroke={clr} strokeWidth="0.8" strokeDasharray="2 2" fill="none" />
+      <circle cx="12" cy="12" r="1.5" fill={clr} opacity="0.6" />
+    </svg>
+  )
 }
-
-/** Syzygy midpoint biased 15% toward the given zone */
-function syzMidBiased(zone: number, pos: Record<number, Pos>): Pos {
-  const a = pos[zone], b = pos[9 - zone]
-  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
-  return { x: mx + (a.x - mx) * 0.15, y: my + (a.y - my) * 0.15 }
-}
-
-function quadPath(from: Pos, to: Pos, bulge: number): string {
-  if (Math.abs(bulge) < 0.5) return `M${from.x} ${from.y}L${to.x} ${to.y}`
-  const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2
-  const dx = to.x - from.x, dy = to.y - from.y
-  const len = Math.sqrt(dx * dx + dy * dy) || 1
-  const px = -dy / len, py = dx / len
-  return `M${from.x} ${from.y}Q${mx + px * bulge} ${my + py * bulge} ${to.x} ${to.y}`
-}
-
-function loopPath(p: Pos, dir: 'below' | 'above'): string {
-  const r = 13, off = 20
-  if (dir === 'below')
-    return `M${p.x - r} ${p.y + off}A${r} ${r} 0 1 0 ${p.x + r} ${p.y + off}A${r} ${r} 0 1 0 ${p.x - r} ${p.y + off}`
-  return `M${p.x - r} ${p.y - off}A${r} ${r} 0 1 1 ${p.x + r} ${p.y - off}A${r} ${r} 0 1 1 ${p.x - r} ${p.y - off}`
-}
-
-function curveAway(from: Pos, to: Pos, cx: number, cy: number, factor = 0.2): string {
-  const dx = to.x - from.x, dy = to.y - from.y
-  const dist = Math.sqrt(dx * dx + dy * dy) || 1
-  const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2
-  const px = -dy / dist, py = dx / dist
-  const dot = px * (cx - mx) + py * (cy - my)
-  const sign = dot > 0 ? -1 : 1
-  return quadPath(from, to, sign * dist * factor)
-}
-
-/** Compute syzygy directional triangle vertices inside zone circle */
-function syzTrianglePoints(zone: number, pos: Record<number, Pos>): string {
-  const partner = 9 - zone
-  const p = pos[zone], pp = pos[partner]
-  const dx = pp.x - p.x, dy = pp.y - p.y
-  const angle = Math.atan2(dy, dx)
-  const tipDist = 8, baseSize = 5
-  const tipX = p.x + Math.cos(angle) * tipDist
-  const tipY = p.y + Math.sin(angle) * tipDist
-  const b1x = p.x + Math.cos(angle + Math.PI * 0.75) * baseSize
-  const b1y = p.y + Math.sin(angle + Math.PI * 0.75) * baseSize
-  const b2x = p.x + Math.cos(angle - Math.PI * 0.75) * baseSize
-  const b2y = p.y + Math.sin(angle - Math.PI * 0.75) * baseSize
-  return `${tipX},${tipY} ${b1x},${b1y} ${b2x},${b2y}`
-}
-
-/* ═══════ COMPONENT ════════════════════════════════════════════ */
-
-type Layer = 'syzygies' | 'currents' | 'gates' | 'pandemonium'
-type HoverInfo =
-  | { type: 'zone'; zone: number }
-  | { type: 'syzygy'; a: number; b: number; demon: string }
-  | { type: 'current'; name: string; label: string }
-  | { type: 'gate'; gate: GateData }
-  | { type: 'demon'; demon: Demon }
-
-const REGION_CLR: Record<Region, string> = { torque: '#00ccff', warp: '#44cc77', plex: '#aa6633' }
 
 export default function NumogramPage() {
+  // ── State ──────────────────────────────────────────────────
   const [layout, setLayout] = useState<Layout>('original')
-  const [layers, setLayers] = useState<Set<Layer>>(
-    () => new Set(['syzygies', 'currents', 'gates']),
-  )
+  const [layers, setLayers] = useState<Set<Layer>>(() => new Set<Layer>(['syzygies', 'currents', 'gates']))
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null)
-  const [selZone, setSelZone] = useState<number | null>(null)
+  const [selZones, setSelZones] = useState<Set<number>>(new Set())
+  const [hlRegion, setHlRegion] = useState<Region | null>(null)
+  const [tcActive, setTcActive] = useState(false)
+  const [hoveredLayout, setHoveredLayout] = useState<Layout | null>(null)
+  const [particlesOn, setParticlesOn] = useState(false)
+  const [showOrbits, setShowOrbits] = useState(true)
+  const [planetDate, setPlanetDate] = useState('')
+  const [pinnedInfo, setPinnedInfo] = useState<HoverInfo | null>(null)
+  const [layersOpen, setLayersOpen] = useState(true)
+  const [regionsOpen, setRegionsOpen] = useState(true)
+  const [zonesOpen, setZonesOpen] = useState(true)
+  const [syzOpen, setSyzOpen] = useState(true)
+  const [currentsOpen, setCurrentsOpen] = useState(true)
+  const [gatesOpen, setGatesOpen] = useState(true)
 
+  const svgWrapRef = useRef<HTMLDivElement>(null)
+
+  // ── Hooks ──────────────────────────────────────────────────
+  const introPhase = useIntro()
+  const { planetaryAngles, setPlanetaryAngles, orbiting, setOrbiting, onDateUpdateRef } = useOrbitalAnimation(layout, PLANETARY_DEFAULT_ANGLE)
+  const { pos, ctr, svgHeight, planetaryPos, switchLayout } = useTween(layout, planetaryAngles)
+  const parallax = useParallax(svgWrapRef)
+  const { positions: panelPositions, startDrag, canvasPan, startCanvasDrag } = usePanelDrag()
+  const { zoom, zoomOrigin } = useCanvasZoom(svgWrapRef)
+  const orbitStartDateRef = useRef<Date | null>(null)
+
+  // Keep orbit start date in sync
+  useEffect(() => {
+    if (orbiting && planetDate && !orbitStartDateRef.current) {
+      orbitStartDateRef.current = new Date(planetDate + 'T12:00:00')
+    }
+    if (!orbiting) {
+      orbitStartDateRef.current = null
+    }
+  }, [orbiting, planetDate])
+
+  // Wire up the date update callback for orbital animation
+  useEffect(() => {
+    onDateUpdateRef.current = (elapsedYears: number) => {
+      const start = orbitStartDateRef.current
+      if (!start) return
+      const ms = start.getTime() + elapsedYears * 365.25 * 24 * 3600 * 1000
+      const d = new Date(ms)
+      setPlanetDate(d.toISOString().slice(0, 10))
+    }
+    return () => { onDateUpdateRef.current = null }
+  }, [onDateUpdateRef])
+
+  // ── Callbacks ──────────────────────────────────────────────
   const toggleLayer = useCallback((l: Layer) => {
     setLayers(p => { const s = new Set(p); s.has(l) ? s.delete(l) : s.add(l); return s })
   }, [])
 
-  const pos = layout === 'labyrinth' ? P_LABYRINTH
-            : layout === 'ladder' ? P_LADDER
-            : P_ORIGINAL
-  const ctr = CENTER[layout]
-  const focusZone = (hoverInfo?.type === 'zone' ? hoverInfo.zone : null) ?? selZone
-  const svgHeight = layout === 'original' ? 920 : 680
+  const handleSwitchLayout = useCallback((newLayout: Layout) => {
+    switchLayout()
+    setLayout(newLayout)
+  }, [switchLayout])
 
+  const onHoverInfo = useCallback((info: HoverInfo | null) => setHoverInfo(info), [])
+  const onPinInfo = useCallback((info: HoverInfo) => setPinnedInfo(info), [])
+  const onToggleZone = useCallback((z: number) => {
+    setSelZones(prev => {
+      const next = new Set(prev)
+      next.has(z) ? next.delete(z) : next.add(z)
+      return next
+    })
+  }, [])
+
+  const onToggleSyzygyPair = useCallback((a: number, b: number) => {
+    setSelZones(prev => {
+      const next = new Set(prev)
+      if (next.has(a) && next.has(b)) { next.delete(a); next.delete(b) }
+      else { next.add(a); next.add(b) }
+      return next
+    })
+  }, [])
+
+  const onSelectRegion = useCallback((r: Region | null) => {
+    setHlRegion(r)
+    setTcActive(false)
+  }, [])
+
+  const onToggleAllZones = useCallback(() => {
+    setSelZones(prev => {
+      if (prev.size === 10) return new Set()
+      const all = new Set<number>()
+      for (let z = 0; z <= 9; z++) all.add(z)
+      return all
+    })
+    setHlRegion(null)
+  }, [])
+
+  const onToggleTC = useCallback(() => {
+    setTcActive(prev => !prev)
+    setHlRegion(null)
+  }, [])
+
+  const onSelectCurrent = useCallback((from: number, to: number) => {
+    setSelZones(prev => {
+      const next = new Set(prev)
+      const partner = 9 - from
+      if (next.has(from) && next.has(partner) && next.has(to)) {
+        next.delete(from); next.delete(partner); next.delete(to)
+      } else {
+        next.add(from); next.add(partner); next.add(to)
+      }
+      return next
+    })
+  }, [])
+
+  const onSelectGate = useCallback((from: number, to: number) => {
+    setSelZones(prev => {
+      const next = new Set(prev)
+      const partner = 9 - from
+      if (next.has(from) && next.has(partner) && next.has(to)) {
+        next.delete(from); next.delete(partner); next.delete(to)
+      } else {
+        next.add(from); next.add(partner); next.add(to)
+      }
+      return next
+    })
+  }, [])
+
+  // ── Computed values ────────────────────────────────────────
   const hlZones = useMemo(() => {
-    if (!hoverInfo) return new Set<number>()
-    switch (hoverInfo.type) {
-      case 'zone': return new Set([hoverInfo.zone])
-      case 'syzygy': return new Set([hoverInfo.a, hoverInfo.b])
-      case 'current': {
-        const c = CURRENTS.find(c => c.name === hoverInfo.name)
-        return c ? new Set([c.from, 9 - c.from, c.to]) : new Set<number>()
+    if (tcActive) return new Set([1, 2, 4, 5, 7, 8])
+    if (hlRegion) {
+      const s = new Set<number>()
+      for (let z = 0; z <= 9; z++) {
+        if (ZONE_REGION[z] === hlRegion) s.add(z)
       }
-      case 'gate': {
-        const g = hoverInfo.gate
-        return g.from === g.to
-          ? new Set([g.from, 9 - g.from])
-          : new Set([g.from, 9 - g.from, g.to])
-      }
-      case 'demon': return new Set([hoverInfo.demon.a, hoverInfo.demon.b])
-      default: return new Set<number>()
+      return s
     }
-  }, [hoverInfo])
+    const s = new Set<number>(selZones)
+    if (hoverInfo) {
+      switch (hoverInfo.type) {
+        case 'zone': s.add(hoverInfo.zone); break
+        case 'syzygy': s.add(hoverInfo.data.a); s.add(hoverInfo.data.b); break
+        case 'current': {
+          const c = hoverInfo.data
+          s.add(c.from); s.add(9 - c.from); s.add(c.to); break
+        }
+        case 'gate': {
+          const g = hoverInfo.gate
+          s.add(g.from); s.add(9 - g.from); if (g.from !== g.to) s.add(g.to); break
+        }
+        case 'demon': s.add(hoverInfo.demon.a); s.add(hoverInfo.demon.b); break
+      }
+    }
+    return s
+  }, [hoverInfo, selZones, hlRegion, tcActive])
 
-  // Gate render data: Y-gates (original/labyrinth) or single paths (ladder)
-  type GateRender =
-    | { type: 'loop'; loop: string }
-    | { type: 'single'; path: string }
-    | { type: 'ygate'; legA: string; legB: string; stem: string; junction: Pos }
+  const anyFocus = hlZones.size > 0
+
   const gateRenderData = useMemo(() => {
     const data: Record<string, GateRender> = {}
+    const isPlanetary = layout === 'planetary'
     for (const gate of GATE_LIST) {
       if (gate.from === gate.to) {
         const pt = syzMidBiased(gate.from, pos)
@@ -251,20 +305,23 @@ export default function NumogramPage() {
         const end = pos[gate.to]
         data[gate.name] = { type: 'single', path: curveAway(start, end, ctr.x, ctr.y, 0.2) }
       } else {
-        // Y-gate: both syzygy zones converge at junction, then stem to destination
         const zA = pos[gate.from]
         const zB = pos[9 - gate.from]
         const syzMid = midpoint(zA, zB)
         const dest = pos[gate.to]
+        const jFrac = isPlanetary ? 0.6 : 1 / 3
         const junction = {
-          x: syzMid.x + (dest.x - syzMid.x) / 3,
-          y: syzMid.y + (dest.y - syzMid.y) / 3,
+          x: syzMid.x + (dest.x - syzMid.x) * jFrac,
+          y: syzMid.y + (dest.y - syzMid.y) * jFrac,
         }
+        const legCurve = isPlanetary ? 0.35 : 0.15
         data[gate.name] = {
           type: 'ygate',
-          legA: curveAway(zA, junction, ctr.x, ctr.y, 0.15),
-          legB: curveAway(zB, junction, ctr.x, ctr.y, 0.15),
-          stem: `M${junction.x} ${junction.y}L${dest.x} ${dest.y}`,
+          legA: curveAway(zA, junction, ctr.x, ctr.y, legCurve),
+          legB: curveAway(zB, junction, ctr.x, ctr.y, legCurve),
+          stem: isPlanetary
+            ? curveAway(junction, dest, ctr.x, ctr.y, 0.15)
+            : `M${junction.x} ${junction.y}L${dest.x} ${dest.y}`,
           junction,
         }
       }
@@ -272,13 +329,9 @@ export default function NumogramPage() {
     return data
   }, [pos, ctr, layout])
 
-  // Current render data (Y-shape in original/labyrinth, single in ladder)
-  type CurrentRender =
-    | { type: 'single'; path: string; mid: Pos }
-    | { type: 'yshape'; legA: string; legB: string; stem: string; junction: Pos }
-
   const currentRenderData = useMemo(() => {
     const data: Record<string, CurrentRender> = {}
+    const isPlanetary = layout === 'planetary'
     for (const c of CURRENTS) {
       const partner = 9 - c.from
       if (layout === 'ladder') {
@@ -291,469 +344,261 @@ export default function NumogramPage() {
         const zB = pos[partner]
         const syzMid = midpoint(zA, zB)
         const dest = pos[c.to]
-        const junction = {
-          x: syzMid.x + (dest.x - syzMid.x) * 0.35,
-          y: syzMid.y + (dest.y - syzMid.y) * 0.35,
-        }
-        data[c.name] = {
-          type: 'yshape',
-          legA: curveAway(zA, junction, ctr.x, ctr.y, 0.12),
-          legB: curveAway(zB, junction, ctr.x, ctr.y, 0.12),
-          stem: `M${junction.x} ${junction.y}L${dest.x} ${dest.y}`,
-          junction,
+        const isSelfRef = c.to === c.from || c.to === partner
+        if (isSelfRef) {
+          const pt = syzMidBiased(c.from, pos)
+          const junction: Pos = { x: pt.x, y: pt.y + (pt.y > ctr.y ? 20 : -20) }
+          const legCurve = isPlanetary ? 0.3 : 0.12
+          data[c.name] = {
+            type: 'loop',
+            legA: curveAway(zA, junction, ctr.x, ctr.y, legCurve),
+            legB: curveAway(zB, junction, ctr.x, ctr.y, legCurve),
+            loop: loopPath(pt, pt.y > ctr.y ? 'below' : 'above'),
+            junction,
+          }
+        } else {
+          const jFrac = isPlanetary ? 0.55 : 0.35
+          const junction: Pos = {
+            x: syzMid.x + (dest.x - syzMid.x) * jFrac,
+            y: syzMid.y + (dest.y - syzMid.y) * jFrac,
+          }
+          const legCurve = isPlanetary ? 0.3 : 0.12
+          data[c.name] = {
+            type: 'yshape',
+            legA: curveAway(zA, junction, ctr.x, ctr.y, legCurve),
+            legB: curveAway(zB, junction, ctr.x, ctr.y, legCurve),
+            stem: isPlanetary
+              ? curveAway(junction, dest, ctr.x, ctr.y, 0.12)
+              : `M${junction.x} ${junction.y}L${dest.x} ${dest.y}`,
+            junction,
+          }
         }
       }
     }
     return data
   }, [pos, ctr, layout])
 
-  // Warp self-referential loop (6−3=3)
-  const warpLoop = useMemo(() => {
-    const p3 = pos[3], p6 = pos[6]
-    const [left, right] = p3.x < p6.x ? [p3, p6] : [p6, p3]
-    return `M${left.x + 18} ${left.y + 10}C${left.x + 60} ${left.y + 55} ${right.x - 60} ${right.y + 55} ${right.x - 18} ${right.y + 10}`
-  }, [pos])
-
-  // Plex self-referential loop (9−0=9)
-  const plexLoop = useMemo(() => {
-    const p0 = pos[0], p9 = pos[9]
-    const [left, right] = p0.x < p9.x ? [p0, p9] : [p9, p0]
-    if (layout === 'labyrinth') {
-      return `M${left.x - 18} ${left.y - 10}C${left.x - 60} ${left.y - 55} ${right.x + 60} ${right.y - 55} ${right.x + 18} ${right.y - 10}`
+  const zoneOrder = useMemo(() => {
+    if (layout === 'planetary') {
+      // Depth-sort: lower y (farther) renders first, higher y (nearer) renders last
+      return [0,1,2,3,4,5,6,7,8,9].sort((a, b) => pos[a].y - pos[b].y)
     }
-    return `M${left.x + 18} ${left.y + 10}C${left.x + 60} ${left.y + 55} ${right.x - 60} ${right.y + 55} ${right.x - 18} ${right.y + 10}`
-  }, [pos, layout])
+    if (layout === 'labyrinth') return [6, 3, 8, 7, 1, 2, 4, 5, 9, 0]
+    if (layout === 'ladder') return [4, 5, 3, 6, 2, 7, 1, 8, 0, 9]
+    return [6, 3, 2, 7, 5, 4, 1, 8, 9, 0]
+  }, [layout, pos])
 
-  const zoneOrder = layout === 'labyrinth'
-    ? [6, 3, 8, 7, 1, 2, 4, 5, 9, 0]
-    : layout === 'ladder'
-    ? [4, 5, 3, 6, 2, 7, 1, 8, 0, 9]
-    : [6, 3, 2, 7, 5, 4, 1, 8, 9, 0]
-
+  // ── Render ─────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#060609] text-gray-300 flex flex-col items-center px-4 py-8 font-mono select-none">
-      <h1 className="text-sm tracking-[0.4em] text-gray-500 uppercase">The Numogram</h1>
-      <p className="text-[9px] text-gray-700 mt-1 mb-4 tracking-wide">
-        The Decimal Labyrinth &mdash; CCRU
-      </p>
+    <div className="min-h-screen bg-[#060609] text-gray-300 flex flex-col items-center justify-center px-4 py-8 font-mono select-none relative">
 
-      {/* Layout toggle */}
-      <div className="flex gap-1 mb-6">
-        {(['original', 'labyrinth', 'ladder'] as Layout[]).map(l => (
-          <button
-            key={l}
-            onClick={() => setLayout(l)}
-            className={`px-3 py-1 text-[10px] tracking-wider uppercase rounded transition-colors ${
-              layout === l
-                ? 'bg-white/10 text-gray-300'
-                : 'text-gray-600 hover:text-gray-400'
-            }`}
-          >
-            {l}
-          </button>
-        ))}
+      {/* === Fixed top bar === */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex flex-col items-center pt-3 pb-1 pointer-events-none"
+        style={{ background: 'linear-gradient(180deg, #060609 60%, transparent 100%)' }}
+      >
+        <div className="pointer-events-auto flex flex-col items-center">
+          <ButtonSet>
+            {(['original', 'labyrinth', 'ladder', 'planetary'] as Layout[]).map(l => {
+              const active = layout === l
+              const clr = active ? '#10ff50' : '#444'
+              const icon = l === 'original' ? <OriginalIcon clr={clr} />
+                : l === 'labyrinth' ? <LabyrinthIcon clr={clr} />
+                : l === 'ladder' ? <LadderIcon clr={clr} />
+                : <PlanetaryIcon clr={clr} />
+              return (
+                <Button key={l} active={active}
+                  onClick={() => handleSwitchLayout(l)}
+                  onMouseEnter={() => setHoveredLayout(l)}
+                  onMouseLeave={() => setHoveredLayout(null)}
+                >{icon}</Button>
+              )
+            })}
+          </ButtonSet>
+          <div className="h-4 flex items-center">
+            {hoveredLayout && (
+              <span className="text-[8px] tracking-[0.25em] uppercase font-mono"
+                style={{ color: '#10ff50', textShadow: '0 0 8px rgba(16,255,80,0.4)' }}
+              >{hoveredLayout}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Planetary controls */}
+        {layout === 'planetary' && (
+          <div className="pointer-events-auto flex items-start gap-1.5">
+            <ButtonSet cornerSize={6}>
+              <Button active={orbiting} indicator onClick={() => setOrbiting(o => !o)} className="py-1.5">
+                <OrbitIcon clr={orbiting ? '#10ff50' : '#555'} />
+              </Button>
+            </ButtonSet>
+            <div className="flex flex-col items-stretch gap-1">
+              <ButtonSet cornerSize={6}>
+                <Button active={!!planetDate} onClick={() => {
+                  setOrbiting(false)
+                  const d = planetDate ? new Date(planetDate + 'T12:00:00') : new Date()
+                  if (!planetDate) setPlanetDate(new Date().toISOString().slice(0, 10))
+                  setPlanetaryAngles(getAnglesForDate(d))
+                }} className="py-1.5">
+                  <TodayIcon />
+                </Button>
+                <Button onClick={() => { setOrbiting(false); setPlanetaryAngles(PLANETARY_DEFAULT_ANGLE); setPlanetDate('') }} className="py-1.5">
+                  <ResetIcon />
+                </Button>
+                <Button active={showOrbits} indicator onClick={() => setShowOrbits(o => !o)} className="py-1.5">
+                  <OrbitsIcon clr={showOrbits ? '#10ff50' : '#555'} />
+                </Button>
+              </ButtonSet>
+              {planetDate && (
+                <input
+                  type="date"
+                  value={planetDate}
+                  onChange={e => {
+                    const val = e.target.value
+                    setPlanetDate(val)
+                    if (val) {
+                      setOrbiting(false)
+                      setPlanetaryAngles(getAnglesForDate(new Date(val + 'T12:00:00')))
+                    }
+                  }}
+                  className="bg-transparent text-[10px] tracking-wider font-mono px-2 py-1 outline-none"
+                  style={{
+                    border: '1px solid rgba(16,255,80,0.12)',
+                    color: '#10ff50',
+                    clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)',
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-6 items-start">
-        {/* ═══ SVG ═══ */}
-        <svg viewBox={`0 0 800 ${svgHeight}`} className="w-[580px] flex-shrink-0" style={{ overflow: 'visible' }}>
-          <defs>
-            <filter id="gl"><feGaussianBlur stdDeviation="3" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-            <filter id="gl2"><feGaussianBlur stdDeviation="5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-            <marker id="arr-c" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="7" markerHeight="5" orient="auto">
-              <path d="M0,0.5 L7,3 L0,5.5" fill="#22ee66" />
-            </marker>
-            <marker id="arr-g" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="6" markerHeight="4" orient="auto">
-              <path d="M0,0.5 L7,3 L0,5.5" fill="#cc44ff" />
-            </marker>
-          </defs>
+      {/* Background title layer */}
+      <div
+        className="fixed inset-0 flex flex-col items-center justify-center pointer-events-none z-0"
+        style={{
+          transition: 'opacity 1.2s ease, filter 1.2s ease',
+          opacity: introPhase === 'title' ? 1 : introPhase === 'fading' ? 0.06 : 0.04,
+          filter: introPhase === 'title' ? 'blur(0px)' : 'blur(1px)',
+        }}
+      >
+        <h1
+          className="text-4xl md:text-6xl tracking-[0.35em] text-gray-300 uppercase font-mono"
+          style={{
+            textShadow: introPhase === 'title'
+              ? '0 0 30px rgba(16,255,80,0.4), 0 0 60px rgba(16,255,80,0.15), 0 0 120px rgba(16,255,80,0.05)'
+              : '0 0 8px rgba(16,255,80,0.1)',
+            transition: 'text-shadow 1.2s ease, color 1.2s ease',
+            color: introPhase === 'title' ? '#d1d5db' : '#333',
+          }}
+        >The Numogram</h1>
+        <p
+          className="text-xs md:text-sm tracking-[0.3em] mt-3 font-mono uppercase"
+          style={{
+            textShadow: introPhase === 'title' ? '0 0 20px rgba(16,255,80,0.25)' : 'none',
+            transition: 'text-shadow 1.2s ease, color 1.2s ease',
+            color: introPhase === 'title' ? '#6b7280' : '#222',
+          }}
+        >The Decimal Labyrinth &mdash; CCRU</p>
+      </div>
 
-          {/* Region labels */}
-          {layout === 'labyrinth' ? (
-            <>
-              <text x={400} y={20} textAnchor="middle" fill="#44cc77" fontSize="9" opacity={0.4} fontFamily="monospace">WARP</text>
-              <text x={400} y={328} textAnchor="middle" fill="#00ccff" fontSize="9" opacity={0.25} fontFamily="monospace">TORQUE</text>
-              <text x={400} y={648} textAnchor="middle" fill="#aa6633" fontSize="9" opacity={0.4} fontFamily="monospace">PLEX</text>
-            </>
-          ) : layout === 'ladder' ? (
-            <>
-              <text x={215} y={224} textAnchor="end" fill="#44cc77" fontSize="8" opacity={0.35} fontFamily="monospace">WARP</text>
-              <text x={215} y={584} textAnchor="end" fill="#aa6633" fontSize="8" opacity={0.35} fontFamily="monospace">PLEX</text>
-            </>
-          ) : (
-            <>
-              <text x={375} y={38} textAnchor="middle" fill="#44cc77" fontSize="8" opacity={0.35} fontFamily="monospace">WARP</text>
-              <text x={400} y={905} textAnchor="middle" fill="#aa6633" fontSize="8" opacity={0.35} fontFamily="monospace">PLEX</text>
-            </>
-          )}
+      {/* Pinned background */}
+      <PinnedBackground pinnedInfo={pinnedInfo} hoverInfo={hoverInfo} introPhase={introPhase} />
 
-          {/* ── Pandemonium layer ── */}
-          {layers.has('pandemonium') && ALL_DEMONS.filter(d => d.kind !== 'syzygy').map(d => {
-            const hl = hlZones.has(d.a) || hlZones.has(d.b)
-            const clr = d.kind === 'chrono' ? '#00ccff' : d.kind === 'xeno' ? '#cc3333' : '#cc8833'
-            return (
-              <path
-                key={`d-${d.a}:${d.b}`}
-                d={curveAway(pos[d.a], pos[d.b], ctr.x, ctr.y, 0.25)}
-                fill="none"
-                stroke={clr}
-                strokeWidth={hl ? 1 : 0.4}
-                opacity={hl ? 0.6 : focusZone !== null ? 0.03 : 0.08}
-                filter={hl ? 'url(#gl)' : undefined}
-                style={{ transition: 'opacity 0.15s', cursor: 'pointer' }}
-                onMouseEnter={() => setHoverInfo({ type: 'demon', demon: d })}
-                onMouseLeave={() => setHoverInfo(null)}
-              />
-            )
-          })}
+      {/* Main content */}
+      <div
+        className="relative z-10 flex flex-col items-center w-full"
+        style={{
+          transition: 'opacity 1s ease',
+          opacity: introPhase === 'title' ? 0 : introPhase === 'fading' ? 0.8 : 1,
+        }}
+      >
+        <div style={{ height: layout === 'planetary' ? 72 : 48 }} />
 
-          {/* ── Gates layer ── */}
-          {layers.has('gates') && GATE_LIST.map(g => {
-            const rd = gateRenderData[g.name]
-            if (!rd) return null
-            const hl = hlZones.has(g.from) || hlZones.has(g.to) || hlZones.has(9 - g.from)
-            const opacity = hl ? 0.8 : focusZone !== null ? 0.08 : 0.3
-            const sw = hl ? 1.2 : 0.7
-            const flt = hl ? 'url(#gl)' : undefined
-            const evts = {
-              onMouseEnter: () => setHoverInfo({ type: 'gate', gate: g }),
-              onMouseLeave: () => setHoverInfo(null),
+        <div className="flex justify-center w-full" style={{
+          transform: `translate(${canvasPan.x}px, ${canvasPan.y}px)`,
+        }}>
+          <div ref={svgWrapRef} style={{
+            transform: `translate(${parallax.x}px, ${parallax.y}px) scale(${zoom})`,
+            transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+            cursor: 'grab',
+          }}
+          onMouseDown={e => {
+            if ((e.target as HTMLElement).tagName === 'DIV' || (e.target as SVGElement).tagName === 'svg') {
+              startCanvasDrag(e)
             }
-
-            if (rd.type === 'loop') {
-              return (
-                <path key={g.name} d={rd.loop} fill="none" stroke="#cc44ff"
-                  strokeWidth={sw} strokeDasharray="3 2" opacity={opacity} filter={flt}
-                  style={{ transition: 'opacity 0.15s', cursor: 'pointer' }} {...evts} />
-              )
-            }
-
-            if (rd.type === 'single') {
-              return (
-                <path key={g.name} d={rd.path} fill="none" stroke="#cc44ff"
-                  strokeWidth={sw} strokeDasharray="5 3" opacity={opacity} markerEnd="url(#arr-g)" filter={flt}
-                  style={{ transition: 'opacity 0.15s', cursor: 'pointer' }} {...evts} />
-              )
-            }
-
-            // Y-gate: two legs converge at junction, then stem to destination
-            return (
-              <g key={g.name} style={{ cursor: 'pointer' }} {...evts}>
-                <path d={rd.legA} fill="none" stroke="#cc44ff" strokeWidth={sw * 0.8}
-                  strokeDasharray="3 3" opacity={opacity * 0.7} filter={flt}
-                  style={{ transition: 'opacity 0.15s' }} />
-                <path d={rd.legB} fill="none" stroke="#cc44ff" strokeWidth={sw * 0.8}
-                  strokeDasharray="3 3" opacity={opacity * 0.7} filter={flt}
-                  style={{ transition: 'opacity 0.15s' }} />
-                <path d={rd.stem} fill="none" stroke="#cc44ff" strokeWidth={sw}
-                  strokeDasharray="5 3" opacity={opacity} markerEnd="url(#arr-g)" filter={flt}
-                  style={{ transition: 'opacity 0.15s' }} />
-              </g>
-            )
-          })}
-
-          {/* ── Currents layer ── */}
-          {layers.has('currents') && (
-            <>
-              {CURRENTS.map(c => {
-                const rd = currentRenderData[c.name]
-                if (!rd) return null
-                const partner = 9 - c.from
-                const hl = hlZones.has(c.from) || hlZones.has(c.to) || hlZones.has(partner)
-                const opacity = hl ? 0.85 : focusZone !== null ? 0.08 : 0.4
-                const sw = hl ? 1.8 : 1.2
-                const flt = hl ? 'url(#gl)' : undefined
-                const evts = {
-                  onMouseEnter: () => setHoverInfo({ type: 'current', name: c.name, label: c.label }),
-                  onMouseLeave: () => setHoverInfo(null),
-                }
-
-                if (rd.type === 'single') {
-                  return (
-                    <g key={c.name} style={{ cursor: 'pointer' }} {...evts}>
-                      <path d={rd.path} fill="none" stroke="#22ee66" strokeWidth={sw}
-                        opacity={opacity} markerEnd="url(#arr-c)" filter={flt}
-                        style={{ transition: 'opacity 0.15s' }} />
-                      <circle cx={rd.mid.x} cy={rd.mid.y} r={hl ? 4 : 3}
-                        fill="#ffffff" stroke="#22ee66" strokeWidth={0.6}
-                        opacity={opacity * 0.9} style={{ transition: 'opacity 0.15s' }} />
-                    </g>
-                  )
-                }
-
-                return (
-                  <g key={c.name} style={{ cursor: 'pointer' }} {...evts}>
-                    <path d={rd.legA} fill="none" stroke="#22ee66" strokeWidth={sw * 0.7}
-                      opacity={opacity * 0.7} filter={flt}
-                      style={{ transition: 'opacity 0.15s' }} />
-                    <path d={rd.legB} fill="none" stroke="#22ee66" strokeWidth={sw * 0.7}
-                      opacity={opacity * 0.7} filter={flt}
-                      style={{ transition: 'opacity 0.15s' }} />
-                    <circle cx={rd.junction.x} cy={rd.junction.y} r={hl ? 5 : 3.5}
-                      fill="#ffffff" stroke="#22ee66" strokeWidth={0.8}
-                      opacity={opacity} style={{ transition: 'opacity 0.15s' }} />
-                    <path d={rd.stem} fill="none" stroke="#22ee66" strokeWidth={sw}
-                      opacity={opacity} markerEnd="url(#arr-c)" filter={flt}
-                      style={{ transition: 'opacity 0.15s' }} />
-                  </g>
-                )
-              })}
-              {/* Warp self-referential (6−3=3) */}
-              <path
-                d={warpLoop} fill="none" stroke="#44cc77" strokeWidth={1.2}
-                opacity={hlZones.has(3) || hlZones.has(6) ? 0.7 : focusZone !== null ? 0.08 : 0.3}
-                style={{ transition: 'opacity 0.15s' }}
-              />
-              <text
-                x={(pos[3].x + pos[6].x) / 2}
-                y={Math.max(pos[3].y, pos[6].y) + 62}
-                textAnchor="middle" fill="#44cc77" fontSize="7" opacity={0.3} fontFamily="monospace"
-              >6−3=3</text>
-              {/* Plex self-referential (9−0=9) */}
-              <path
-                d={plexLoop} fill="none" stroke="#aa6633" strokeWidth={1.2}
-                opacity={hlZones.has(9) || hlZones.has(0) ? 0.7 : focusZone !== null ? 0.08 : 0.3}
-                style={{ transition: 'opacity 0.15s' }}
-              />
-              <text
-                x={(pos[9].x + pos[0].x) / 2}
-                y={layout === 'labyrinth'
-                  ? Math.min(pos[9].y, pos[0].y) - 58
-                  : Math.max(pos[9].y, pos[0].y) + 62}
-                textAnchor="middle" fill="#aa6633" fontSize="7" opacity={0.3} fontFamily="monospace"
-              >9−0=9</text>
-            </>
-          )}
-
-          {/* Current labels */}
-          {layers.has('currents') && CURRENTS.map(c => {
-            const rd = currentRenderData[c.name]
-            if (!rd) return null
-            const labelPos = rd.type === 'yshape' ? rd.junction : rd.mid
-            const dest = pos[c.to]
-            const dx = dest.x - labelPos.x, dy = dest.y - labelPos.y
-            const len = Math.sqrt(dx * dx + dy * dy) || 1
-            const off = rd.type === 'yshape' ? 16 : 14
-            return (
-              <text
-                key={`cl-${c.name}`}
-                x={labelPos.x + (-dy / len) * off}
-                y={labelPos.y + (dx / len) * off + 1}
-                textAnchor="middle"
-                fill="#22ee66"
-                fontSize="7"
-                opacity={0.4}
-                fontFamily="monospace"
-                style={{ pointerEvents: 'none' }}
-              >
-                {c.name}
-              </text>
-            )
-          })}
-
-          {/* ── Syzygies layer (dots in all modes) ── */}
-          {layers.has('syzygies') && SYZYGIES.map(s => {
-            const hl = hlZones.has(s.a) || hlZones.has(s.b)
-            const pa = pos[s.a], pb = pos[s.b]
-            const dx = pb.x - pa.x, dy = pb.y - pa.y
-            const dist = Math.sqrt(dx * dx + dy * dy)
-            const r = 21 // zone circle radius
-            const startT = dist > 0 ? r / dist : 0
-            const endT = dist > 0 ? 1 - r / dist : 1
-            const span = endT - startT
-            const numDots = Math.max(3, Math.min(10, Math.round(dist / 30)))
-
-            return (
-              <g
-                key={`s-${s.a}:${s.b}`}
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={() => setHoverInfo({ type: 'syzygy', a: s.a, b: s.b, demon: s.demon })}
-                onMouseLeave={() => setHoverInfo(null)}
-              >
-                {/* Invisible hit area */}
-                <line
-                  x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
-                  stroke="transparent" strokeWidth={14}
-                />
-                {Array.from({ length: numDots }, (_, i) => {
-                  const t = startT + span * (i + 1) / (numDots + 1)
-                  const x = pa.x + dx * t
-                  const y = pa.y + dy * t
-                  const dotR = 1.0 + (t - startT) / span * 1.5
-                  return (
-                    <circle
-                      key={i}
-                      cx={x} cy={y} r={dotR}
-                      fill="#e8e8e8"
-                      opacity={hl ? 0.7 : focusZone !== null ? 0.1 : 0.3}
-                      style={{ transition: 'opacity 0.15s' }}
-                    />
-                  )
-                })}
-              </g>
-            )
-          })}
-
-          {/* ── Zone nodes ── */}
-          {zoneOrder.map(z => {
-            const p = pos[z]
-            const clr = ZONE_CLR[z]
-            const act = focusZone === z
-            const hl = hlZones.has(z)
-            const region = ZONE_REGION[z]
-
-            return (
-              <g
-                key={z}
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={() => setHoverInfo({ type: 'zone', zone: z })}
-                onMouseLeave={() => setHoverInfo(null)}
-                onClick={() => setSelZone(v => v === z ? null : z)}
-              >
-                {act && (
-                  <circle cx={p.x} cy={p.y} r={28} fill="none" stroke={clr} strokeWidth={0.5} opacity={0.3} filter="url(#gl2)" />
-                )}
-                <circle
-                  cx={p.x} cy={p.y} r={21}
-                  fill={`${clr}18`}
-                  stroke={act || hl ? clr : `${clr}44`}
-                  strokeWidth={act ? 1.6 : hl ? 1.2 : 0.7}
-                />
-                {/* Directional triangle pointing toward syzygy partner */}
-                <polygon
-                  points={syzTrianglePoints(z, pos)}
-                  fill={clr}
-                  opacity={act || hl ? 0.5 : 0.2}
-                  style={{ pointerEvents: 'none', transition: 'opacity 0.15s' }}
-                />
-                <text
-                  x={p.x} y={p.y + 1}
-                  textAnchor="middle" dominantBaseline="central"
-                  fill={act || hl ? clr : `${clr}aa`}
-                  fontSize="17" fontWeight="bold" fontFamily="monospace"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {z}
-                </text>
-                {/* Region dot */}
-                <circle
-                  cx={p.x} cy={p.y + 28} r={2}
-                  fill={REGION_CLR[region]}
-                  opacity={0.3}
-                />
-              </g>
-            )
-          })}
-
-          {/* Gate cumulation labels (original/labyrinth — near junction) */}
-          {layout !== 'ladder' && layers.has('gates') && GATE_LIST.filter(g => g.from !== g.to).map(g => {
-            const rd = gateRenderData[g.name]
-            if (!rd || rd.type !== 'ygate') return null
-            const j = rd.junction
-            return (
-              <g key={`gl-${g.name}`} style={{ pointerEvents: 'none' }}>
-                <circle cx={j.x} cy={j.y} r={7} fill="#06060988" />
-                <text x={j.x} y={j.y + 1} textAnchor="middle" dominantBaseline="central" fill="#cc44ff" fontSize="7" fontFamily="monospace" fontStyle="italic" opacity={0.6}>
-                  {g.cum}
-                </text>
-              </g>
-            )
-          })}
-        </svg>
-
-        {/* ═══ Right Panel ═══ */}
-        <div className="flex flex-col gap-3 min-w-[160px] max-w-[180px] pt-1 text-[10px]">
-          {/* Layers */}
-          <div>
-            <p className="text-[9px] text-gray-600 tracking-[0.2em] mb-2 uppercase">Layers</p>
-            {([
-              { id: 'syzygies' as Layer, label: 'Syzygies', clr: '#e8e8e8' },
-              { id: 'currents' as Layer, label: 'Currents', clr: '#22ee66' },
-              { id: 'gates' as Layer, label: 'Gates', clr: '#cc44ff' },
-              { id: 'pandemonium' as Layer, label: 'Pandemonium', clr: '#cc3333' },
-            ]).map(l => (
-              <div
-                key={l.id}
-                className="flex items-center gap-2 py-0.5 cursor-pointer"
-                style={{ opacity: layers.has(l.id) ? 1 : 0.25, transition: 'opacity 0.15s' }}
-                onClick={() => toggleLayer(l.id)}
-              >
-                <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: l.clr }} />
-                <span className="text-gray-400">{l.label}</span>
-              </div>
-            ))}
+          }}>
+            <Projection
+              layout={layout}
+              pos={pos}
+              ctr={ctr}
+              svgHeight={svgHeight}
+              layers={layers}
+              hlZones={hlZones}
+              selZones={selZones}
+              anyFocus={anyFocus}
+              tcActive={tcActive}
+              showOrbits={showOrbits}
+              planetaryPos={planetaryPos}
+              zoneOrder={zoneOrder}
+              gateRenderData={gateRenderData}
+              currentRenderData={currentRenderData}
+              particlesOn={particlesOn}
+              onHoverInfo={onHoverInfo}
+              onPinInfo={onPinInfo}
+              onToggleZone={onToggleZone}
+            />
           </div>
-
-          {/* Regions */}
-          <div>
-            <p className="text-[9px] text-gray-600 tracking-[0.2em] mb-2 uppercase">Regions</p>
-            <div className="space-y-1 text-gray-500">
-              <div><span style={{ color: '#00ccff' }}>Torque</span> <span className="text-gray-700">1 2 4 5 7 8</span></div>
-              <div><span style={{ color: '#44cc77' }}>Warp</span> <span className="text-gray-700">3 6</span></div>
-              <div><span style={{ color: '#aa6633' }}>Plex</span> <span className="text-gray-700">0 9</span></div>
-            </div>
-          </div>
-
-          {/* Time Circuit */}
-          <div>
-            <p className="text-[9px] text-gray-600 tracking-[0.2em] mb-1.5 uppercase">Time Circuit</p>
-            <p className="text-gray-600 leading-relaxed">1→8→7→2→5→4→1</p>
-            <p className="text-gray-700 text-[9px] mt-0.5">anticlockwise</p>
-          </div>
-
-          {/* Info panel */}
-          {hoverInfo && (
-            <div className="p-2.5 border border-gray-800/60 rounded leading-relaxed text-gray-500 space-y-0.5">
-              {hoverInfo.type === 'zone' && (() => {
-                const z = hoverInfo.zone
-                const demons = ALL_DEMONS.filter(d => d.a === z || d.b === z)
-                return (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-bold" style={{ color: ZONE_CLR[z] }}>Zone {z}</span>
-                      <span className="text-gray-700 text-[9px]">{ZONE_REGION[z]}</span>
-                    </div>
-                    <div className="text-gray-600">Syzygy: {z} ↔ {9 - z}</div>
-                    <div className="text-gray-600">Particle: <span className="text-gray-400 italic">{ZONE_PARTICLE[z]}</span></div>
-                    <div className="text-gray-700 text-[9px] mt-1">{demons.length} demons</div>
-                  </>
-                )
-              })()}
-              {hoverInfo.type === 'syzygy' && (
-                <>
-                  <div>Syzygy <span className="text-white font-bold">{hoverInfo.a}::{hoverInfo.b}</span></div>
-                  <div>Demon: <span className="text-gray-300 italic">{hoverInfo.demon}</span></div>
-                  <div className="text-gray-700 text-[9px]">{hoverInfo.a}+{hoverInfo.b}=9</div>
-                </>
-              )}
-              {hoverInfo.type === 'current' && (
-                <>
-                  <div>Current: <span className="text-white font-bold" style={{ color: '#22ee66' }}>{hoverInfo.name}</span></div>
-                  <div className="text-gray-600">{hoverInfo.label}</div>
-                </>
-              )}
-              {hoverInfo.type === 'gate' && (
-                <>
-                  <div>
-                    <span className="text-white font-bold" style={{ color: '#cc44ff' }}>{hoverInfo.gate.name}</span>
-                    <span className="text-gray-700 ml-2">{hoverInfo.gate.from}→{hoverInfo.gate.to}</span>
-                  </div>
-                  <div className="text-gray-400 italic">{hoverInfo.gate.desc}</div>
-                  <div className="text-gray-700 text-[9px]">Σ = {hoverInfo.gate.cum}</div>
-                </>
-              )}
-              {hoverInfo.type === 'demon' && (
-                <>
-                  <div>
-                    <span className="text-gray-300 italic">{hoverInfo.demon.name}</span>
-                    <span className="text-gray-700 ml-2">{hoverInfo.demon.a}::{hoverInfo.demon.b}</span>
-                  </div>
-                  <div className="text-gray-700">{hoverInfo.demon.kind}demon</div>
-                </>
-              )}
-            </div>
-          )}
         </div>
+      </div>
+
+      {/* === Panels === */}
+      <Panel id="layers" title="Layers" position={panelPositions.layers} zIndex={40}
+        open={layersOpen} onToggle={() => setLayersOpen(o => !o)} onDragStart={startDrag}>
+        <LayersPanel layers={layers} toggleLayer={toggleLayer}
+          particlesOn={particlesOn} onToggleParticles={() => setParticlesOn(p => !p)} />
+      </Panel>
+
+      <Panel id="zones" title="Zones" position={panelPositions.zones} zIndex={42}
+        open={zonesOpen} onToggle={() => setZonesOpen(o => !o)} onDragStart={startDrag}>
+        <ZonesPanel selZones={selZones} hlZones={hlZones}
+          onToggleZone={onToggleZone} onToggleAll={onToggleAllZones} onHoverInfo={onHoverInfo} />
+      </Panel>
+
+      <Panel id="regions" title="Regions" position={panelPositions.regions} zIndex={41}
+        open={regionsOpen} onToggle={() => setRegionsOpen(o => !o)} onDragStart={startDrag}>
+        <RegionsPanel hlRegion={hlRegion} tcActive={tcActive}
+          onSelectRegion={onSelectRegion} onToggleTC={onToggleTC} />
+      </Panel>
+
+      <Panel id="syz" title="Syzygies" position={panelPositions.syz} zIndex={44}
+        open={syzOpen} onToggle={() => setSyzOpen(o => !o)} onDragStart={startDrag}>
+        <SyzygiesPanel selZones={selZones} hlZones={hlZones}
+          onToggleSyzygyPair={onToggleSyzygyPair} onHoverInfo={onHoverInfo} />
+      </Panel>
+
+      <Panel id="currents" title="Currents" position={panelPositions.currents} zIndex={43}
+        open={currentsOpen} onToggle={() => setCurrentsOpen(o => !o)} onDragStart={startDrag}>
+        <CurrentsPanel hlZones={hlZones} onHoverInfo={onHoverInfo}
+          onSelectCurrent={onSelectCurrent} />
+      </Panel>
+
+      <Panel id="gates" title="Gates" position={panelPositions.gates} zIndex={45}
+        open={gatesOpen} onToggle={() => setGatesOpen(o => !o)} onDragStart={startDrag}>
+        <GatesPanel hlZones={hlZones} selZones={selZones} onHoverInfo={onHoverInfo}
+          onSelectGate={onSelectGate} onToggleAll={onToggleAllZones} />
+      </Panel>
+
+      {/* === Info Display — fixed bottom-right, grows upward === */}
+      <div
+        className="fixed bottom-3 right-3 z-50 pointer-events-auto font-mono flex flex-col justify-end"
+        style={{
+          width: '30vw',
+          maxHeight: '60vh',
+          overflowY: 'auto',
+        }}
+      >
+        <InfoDisplay hoverInfo={hoverInfo} pinnedInfo={pinnedInfo} />
       </div>
     </div>
   )

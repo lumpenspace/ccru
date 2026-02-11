@@ -6,3 +6,57 @@ body {
   background: #060609;
   color: #d1d5db;
 }
+
+/* CRT scanlines overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 1px,
+    rgba(16, 255, 80, 0.025) 1px,
+    rgba(16, 255, 80, 0.025) 2px
+  );
+  animation: crt-flicker 0.08s infinite alternate;
+}
+
+@keyframes crt-flicker {
+  0% { opacity: 0.96; }
+  100% { opacity: 1; }
+}
+
+/* Phosphor vignette */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.35) 80%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+}
+
+/* Date input — dark theme overrides */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5) sepia(1) saturate(5) hue-rotate(90deg);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* CP2077 status dot pulse */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

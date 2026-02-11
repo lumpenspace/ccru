@@ -1,2 +1,17 @@
 node_modules/
 .next/
+
+# node gitignore
+node_modules/
+.next/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# playwright gitignore
+.playwright-mcp/
+
+# build artifacts
+tsconfig.tsbuildinfo
