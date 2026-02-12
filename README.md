@@ -10,6 +10,8 @@ Explore the live Numogram here: [num.qliphoth.systems](https://num.qliphoth.syst
 
 ### Demo Video
 
+[![Watch the video](https://i.sstatic.net/Vp2cE.png)](https://github.com/lumpenspace/ccru/blob/main/demo.mov)
+
 <video src="./demo.mov" controls muted playsinline width="900">
   Your browser does not support embedded video playback.
 </video>
