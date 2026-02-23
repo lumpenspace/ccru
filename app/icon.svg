@@ -1,0 +1,37 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="70%">
+      <stop offset="0%" stop-color="#111826" />
+      <stop offset="100%" stop-color="#060609" />
+    </radialGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)" />
+
+  <g stroke="#10ff50" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)">
+    <path d="M72 52L184 52L168 102L88 102Z" fill="none" stroke-opacity="0.55" stroke-width="3" />
+    <path d="M88 102L52 144L92 196L164 196L204 144L168 102" fill="none" stroke-opacity="0.55" stroke-width="3" />
+    <path d="M72 52L52 144L92 196" fill="none" stroke-opacity="0.25" stroke-width="2" />
+    <path d="M184 52L204 144L164 196" fill="none" stroke-opacity="0.25" stroke-width="2" />
+  </g>
+
+  <g fill="#10ff50">
+    <circle cx="72" cy="52" r="6" />
+    <circle cx="128" cy="52" r="6" />
+    <circle cx="184" cy="52" r="6" />
+    <circle cx="88" cy="102" r="6" />
+    <circle cx="168" cy="102" r="6" />
+    <circle cx="52" cy="144" r="6" />
+    <circle cx="204" cy="144" r="6" />
+    <circle cx="92" cy="196" r="6" />
+    <circle cx="164" cy="196" r="6" />
+    <circle cx="128" cy="144" r="8" />
+  </g>
+</svg>
