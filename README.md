@@ -10,11 +10,7 @@ Explore the live Numogram here: [num.qliphoth.systems](https://num.qliphoth.syst
 
 ### Demo Video
 
-<video src="./demo.mov" controls muted playsinline width="900">
-  Your browser does not support embedded video playback.
-</video>
-
-If the embed does not render on your platform, open the video directly: [`demo.mov`](./demo.mov).
+https://github.com/user-attachments/assets/a36bf7f0-91d0-4479-801b-f9fba381a5b1
 
 ## Features
 
