@@ -4,6 +4,7 @@ import React from 'react'
 import type { HoverInfo } from '../../data/types'
 import { ZONE_CLR } from '../../data/zones'
 import { SYZYGIES } from '../../data/syzygies'
+import { PanelList, PanelRow } from './shared'
 
 interface SyzygiesPanelProps {
   selZones: Set<number>
@@ -14,14 +15,13 @@ interface SyzygiesPanelProps {
 
 export function SyzygiesPanel({ selZones, hlZones, onToggleSyzygyPair, onHoverInfo }: SyzygiesPanelProps) {
   return (
-    <div className="px-3 pb-2.5 space-y-0.5">
+    <PanelList>
       {SYZYGIES.map(s => {
         const isHl = hlZones.has(s.a) || hlZones.has(s.b)
         return (
           <div key={`${s.a}:${s.b}`}>
-            <div
-              className="flex items-center gap-2 py-0.5 cursor-pointer"
-              style={{ opacity: isHl ? 1 : 0.5, transition: 'opacity 0.15s' }}
+            <PanelRow
+              opacity={isHl ? 1 : 0.5}
               onMouseEnter={() => onHoverInfo({ type: 'syzygy', data: s })}
               onMouseLeave={() => onHoverInfo(null)}
               onClick={() => onToggleSyzygyPair(s.a, s.b)}
@@ -33,10 +33,10 @@ export function SyzygiesPanel({ selZones, hlZones, onToggleSyzygyPair, onHoverIn
               <span className="text-gray-400 text-[10px]">{s.a}::{s.b}</span>
               <span className="text-gray-600 text-[8px] italic">{s.demon}</span>
               <span className="text-[8px] text-gray-700 ml-auto">{s.b - s.a}</span>
-            </div>
+            </PanelRow>
           </div>
         )
       })}
-    </div>
+    </PanelList>
   )
 }

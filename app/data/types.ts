@@ -2,6 +2,11 @@ export type Region = 'torque' | 'warp' | 'plex'
 export type Pos = { x: number; y: number }
 export type Layout = 'labyrinth' | 'ladder' | 'original' | 'planetary'
 export type Layer = 'syzygies' | 'currents' | 'gates' | 'pandemonium'
+export type LabelVisibility = {
+  numbers: boolean
+  xenotation: boolean
+  planets: boolean
+}
 
 export interface ZoneMeta {
   planet: string
@@ -40,8 +45,8 @@ export type HoverInfo =
   | { type: 'demon'; demon: Demon }
 
 export type GateRender =
-  | { type: 'loop'; loop: string }
-  | { type: 'single'; path: string }
+  | { type: 'loop'; loop: string; mid?: Pos }
+  | { type: 'single'; path: string; mid?: Pos }
   | { type: 'ygate'; legA: string; legB: string; stem: string; junction: Pos }
 
 export type CurrentRender =

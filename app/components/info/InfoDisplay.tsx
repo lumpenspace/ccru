@@ -7,6 +7,8 @@ import { SYZYGIES } from '../../data/syzygies'
 import { GATE_LIST } from '../../data/gates'
 import { ALL_DEMONS } from '../../data/demons'
 import { REGION_CLR } from '../../lib/constants'
+import { PanelGroup } from '../panels/PanelGroup'
+import type { PanelGroupItem } from '../panels/PanelGroup'
 
 // ── CP2077 Primitives ──────────────────────────────────────────
 
@@ -251,6 +253,24 @@ function CurrentInfo({ data }: { data: HoverInfo & { type: 'current' } }) {
 
 function GateInfo({ data }: { data: HoverInfo & { type: 'gate' } }) {
   const g = data.gate
+  const plexExpr = (() => {
+    if (g.cum < 10) return null
+    let current = g.cum
+    let expr = ''
+    let first = true
+    while (current >= 10) {
+      const digits = String(current).split('').map(d => Number(d))
+      const sum = digits.reduce((acc, d) => acc + d, 0)
+      if (first) {
+        expr = `${digits.join('+')}=${sum}`
+        first = false
+      } else {
+        expr += `=${sum}`
+      }
+      current = sum
+    }
+    return expr
+  })()
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
@@ -259,6 +279,9 @@ function GateInfo({ data }: { data: HoverInfo & { type: 'gate' } }) {
         <span className="text-[8px] text-gray-600 ml-auto">{g.desc}</span>
       </div>
       <DataRow label="CUMULATION" value={String(g.cum)} color="#cc44ff" />
+      {plexExpr && (
+        <DataRow label="PLEX" value={plexExpr} color="#cc44ff" />
+      )}
       <DataRow
         label="CHANNEL"
         value={g.from === g.to ? `Z${g.from} \u2192 self` : `Z${g.from} \u2192 Z${g.to}`}
@@ -269,14 +292,9 @@ function GateInfo({ data }: { data: HoverInfo & { type: 'gate' } }) {
       <NeonDivider color="#cc44ff" />
       <SectionFrame color="#cc44ff">
         <div className="text-[9px]">
-          <span className="text-gray-600">SOURCE SYZ: </span>
+          <span className="text-gray-600">FLOW: </span>
           <span style={{ color: ZONE_CLR[g.from] }}>Zone {g.from}</span>
-          <span className="text-gray-700"> ({ZONE_META[g.from].planet}) {'\u2194'} </span>
-          <span style={{ color: ZONE_CLR[9 - g.from] }}>Zone {9 - g.from}</span>
-          <span className="text-gray-700"> ({ZONE_META[9 - g.from].planet})</span>
-        </div>
-        <div className="text-[9px]">
-          <span className="text-gray-600">CHANNEL TO: </span>
+          <span className="text-gray-700"> ({ZONE_META[g.from].planet}) {'\u2192'} </span>
           <span style={{ color: ZONE_CLR[g.to] }}>Zone {g.to}</span>
           <span className="text-gray-700"> ({ZONE_META[g.to].planet})</span>
         </div>
@@ -326,33 +344,151 @@ function DemonInfo({ data }: { data: HoverInfo & { type: 'demon' } }) {
 interface InfoDisplayProps {
   hoverInfo: HoverInfo | null
   pinnedInfo: HoverInfo | null
+  selectedInfos?: HoverInfo[]
+  onRemoveSelectedInfo?: (info: HoverInfo) => void
 }
 
-export function InfoDisplay({ hoverInfo, pinnedInfo }: InfoDisplayProps) {
+function selectedInfoKey(info: HoverInfo): string {
+  switch (info.type) {
+    case 'zone': return `zone:${info.zone}`
+    case 'syzygy': return `syzygy:${info.data.a}:${info.data.b}`
+    case 'current': return `current:${info.data.name}`
+    case 'gate': return `gate:${info.gate.name}`
+    case 'demon': return `demon:${info.demon.a}:${info.demon.b}:${info.demon.kind}`
+  }
+}
+
+function selectedInfoMeta(info: HoverInfo): { title: string; color: string } {
+  switch (info.type) {
+    case 'zone':
+      return { title: `Zone ${info.zone}`, color: ZONE_CLR[info.zone] }
+    case 'syzygy':
+      return { title: `Syzygy ${info.data.a}::${info.data.b}`, color: '#e8e8e8' }
+    case 'current':
+      return { title: `${info.data.name} Current`, color: '#22ee66' }
+    case 'gate':
+      return { title: info.gate.name, color: '#cc44ff' }
+    case 'demon':
+      return {
+        title: info.demon.name,
+        color: info.demon.kind === 'chrono' ? '#00ccff'
+          : info.demon.kind === 'xeno' ? '#cc3333'
+          : info.demon.kind === 'amphi' ? '#cc8833' : '#e8e8e8',
+      }
+  }
+}
+
+function renderInfoContent(info: HoverInfo) {
+  if (info.type === 'zone') return <ZoneInfo zone={info.zone} />
+  if (info.type === 'syzygy') return <SyzygyInfo data={info as HoverInfo & { type: 'syzygy' }} />
+  if (info.type === 'current') return <CurrentInfo data={info as HoverInfo & { type: 'current' }} />
+  if (info.type === 'gate') return <GateInfo data={info as HoverInfo & { type: 'gate' }} />
+  return <DemonInfo data={info as HoverInfo & { type: 'demon' }} />
+}
+
+function NumogramIntro() {
+  return (
+    <div className="space-y-2">
+      <SectionFrame color="#10ff50">
+        <p className="text-[8px] text-gray-400 leading-relaxed italic">
+          The Numogram is a decimal labyrinth: ten zones (0-9), paired syzygies that sum to nine,
+          and pathways that map transitions through the system.
+        </p>
+        <NeonDivider color="#10ff50" />
+        <p className="text-[8px] text-gray-500 leading-relaxed">
+          Currents track differential flows across syzygetic pairs. Gates track culminations
+          (triangular sums), then reduce multi-digit values by summation to determine the
+          connecting source.
+        </p>
+        <NeonDivider color="#10ff50" />
+        <p className="text-[8px] text-gray-600 leading-relaxed">
+          Use hover and selection to inspect zones, currents, gates, and demons as a navigational
+          map of recursive time and drift between torque, warp, and plex.
+        </p>
+        <NeonDivider color="#10ff50" />
+        <p className="text-[8px] text-gray-500 leading-relaxed">
+          Controls: click + drag to select, alt + drag to move, scroll to zoom, digits to toggle
+          gates, ASDF to change view.
+        </p>
+      </SectionFrame>
+      <div className="text-[7px] text-gray-700 tracking-[0.1em] uppercase">
+        Click empty space to return here.
+      </div>
+    </div>
+  )
+}
+
+export function InfoDisplay({ hoverInfo, pinnedInfo, selectedInfos = [], onRemoveSelectedInfo }: InfoDisplayProps) {
   const info = hoverInfo || pinnedInfo
+  const selectedByKey = new Map(selectedInfos.map(si => [selectedInfoKey(si), si]))
+  const selectedKeys = selectedInfos.map(selectedInfoKey)
+  const selectedIdsKey = selectedKeys.join('|')
+  const [orderedKeys, setOrderedKeys] = useState<string[]>([])
+
+  useEffect(() => {
+    if (selectedInfos.length === 0) {
+      setOrderedKeys([])
+      return
+    }
+    const valid = new Set(selectedKeys)
+    setOrderedKeys(prev => {
+      const kept = prev.filter(k => valid.has(k))
+      const appended = selectedKeys.filter(k => !kept.includes(k))
+      const next = [...kept, ...appended]
+      if (next.length === prev.length && next.every((k, i) => k === prev[i])) return prev
+      return next
+    })
+  }, [selectedInfos.length, selectedIdsKey])
+
+  if (selectedInfos.length > 0) {
+    const groupItems = orderedKeys.reduce<PanelGroupItem[]>((acc, key) => {
+        const si = selectedByKey.get(key)
+        if (!si) return acc
+        const meta = selectedInfoMeta(si)
+        acc.push({
+          id: key,
+          title: meta.title,
+          color: meta.color,
+          content: renderInfoContent(si),
+          onRemove: onRemoveSelectedInfo ? () => onRemoveSelectedInfo(si) : undefined,
+        })
+        return acc
+      }, [])
+    groupItems.unshift({
+      id: 'base:numogram',
+      title: 'Numogram',
+      color: '#10ff50',
+      content: <NumogramIntro />,
+    })
+
+    return (
+      <div className="px-2 pb-2">
+        <PanelGroup
+          items={groupItems}
+          openLastOnItemsChange
+        />
+      </div>
+    )
+  }
 
   if (!info) {
     return (
-      <div className="px-3 pb-3">
-        <div className="text-[8px] text-gray-700 leading-relaxed tracking-[0.08em] uppercase">
-          <span style={{ color: '#10ff5044' }}>[</span>
-          <span className="italic"> AWAITING INPUT </span>
-          <span style={{ color: '#10ff5044' }}>]</span>
-        </div>
-        <div className="text-[7px] text-gray-800 mt-1 italic">
-          Hover over zones, syzygies, currents, gates or demons to explore the Decimal Labyrinth.
-        </div>
+      <div className="px-2 pb-2">
+        <PanelGroup
+          items={[{
+            id: 'base:numogram',
+            title: 'Numogram',
+            color: '#10ff50',
+            content: <NumogramIntro />,
+          }]}
+        />
       </div>
     )
   }
 
   return (
     <div className="px-3 pb-3">
-      {info.type === 'zone' && <ZoneInfo zone={info.zone} />}
-      {info.type === 'syzygy' && <SyzygyInfo data={info as HoverInfo & { type: 'syzygy' }} />}
-      {info.type === 'current' && <CurrentInfo data={info as HoverInfo & { type: 'current' }} />}
-      {info.type === 'gate' && <GateInfo data={info as HoverInfo & { type: 'gate' }} />}
-      {info.type === 'demon' && <DemonInfo data={info as HoverInfo & { type: 'demon' }} />}
+      {renderInfoContent(info)}
     </div>
   )
 }

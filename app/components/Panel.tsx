@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 
 interface PanelProps {
   id: string
@@ -9,6 +9,9 @@ interface PanelProps {
   width?: number
   open?: boolean
   onToggle?: () => void
+  onActivate?: (panelId: string) => void
+  onHeightChange?: (panelId: string, height: number) => void
+  draggable?: boolean
   onDragStart: (panelId: string, e: React.MouseEvent) => void
   zIndex?: number
   maxBodyHeight?: number
@@ -24,6 +27,9 @@ export function Panel({
   width = 180,
   open = true,
   onToggle,
+  onActivate,
+  onHeightChange,
+  draggable = true,
   onDragStart,
   zIndex = 40,
   maxBodyHeight,
@@ -31,10 +37,26 @@ export function Panel({
   showToggle = true,
   children,
 }: PanelProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!onHeightChange) return
+    const node = rootRef.current
+    if (!node) return
+    const emit = () => onHeightChange(id, node.getBoundingClientRect().height)
+    emit()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(emit)
+    ro.observe(node)
+    return () => ro.disconnect()
+  }, [id, onHeightChange, open])
+
   return (
     <div
+      ref={rootRef}
       className="fixed font-mono text-[10px]"
       style={{ left: position.x, top: position.y, width, zIndex }}
+      onMouseDownCapture={() => onActivate?.(id)}
     >
       <div
         className="relative"
@@ -59,8 +81,10 @@ export function Panel({
         {/* Drag handle header */}
         <div
           className="group w-full flex items-center gap-2 px-3 py-2"
-          style={{ cursor: 'grab' }}
-          onMouseDown={e => onDragStart(id, e)}
+          style={{ cursor: draggable ? 'grab' : 'default' }}
+          onMouseDown={e => {
+            if (draggable) onDragStart(id, e)
+          }}
         >
           <div className="flex flex-col gap-[2px] mr-1 opacity-0 group-hover:opacity-40 transition-opacity">
             <div className="w-3 h-[1px] bg-[#10ff50]" />

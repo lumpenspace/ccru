@@ -3,6 +3,7 @@
 import React from 'react'
 import type { Region } from '../../data/types'
 import { REGION_CLR } from '../../lib/constants'
+import { HoverInfoList, type HoverInfoListItem } from './HoverInfoList'
 
 interface RegionsPanelProps {
   hlRegion: Region | null
@@ -21,51 +22,46 @@ const REGION_DEFS: { id: Region; label: string; zones: string; info: string }[] 
 ]
 
 export function RegionsPanel({ hlRegion, tcActive, onSelectRegion, onToggleTC }: RegionsPanelProps) {
-  return (
-    <div className="px-3 pb-2.5 space-y-1">
-      {REGION_DEFS.map(r => (
-        <div key={r.id}>
-          <div
-            className="flex items-center gap-2 cursor-pointer py-0.5"
-            onClick={() => onSelectRegion(hlRegion === r.id ? null : r.id)}
-          >
-            <div className="w-1 h-3 flex-shrink-0 transition-all" style={{
-              background: hlRegion === r.id ? REGION_CLR[r.id] : `${REGION_CLR[r.id]}44`,
-              boxShadow: hlRegion === r.id ? `0 0 6px ${REGION_CLR[r.id]}66` : 'none',
-            }} />
-            <span style={{
-              color: REGION_CLR[r.id],
-              opacity: hlRegion === r.id ? 1 : 0.6,
-              textShadow: hlRegion === r.id ? `0 0 6px ${REGION_CLR[r.id]}44` : 'none',
-            }}>{r.label}</span>
-            <span className="text-gray-700 text-[9px] ml-auto font-mono">{r.zones}</span>
-          </div>
-          {hlRegion === r.id && (
-            <p className="text-[8px] leading-relaxed pl-3 pb-1 italic" style={{ color: `${REGION_CLR[r.id]}88` }}>{r.info}</p>
-          )}
-        </div>
-      ))}
-      <div className="mt-1 pt-1" style={{ borderTop: '1px solid rgba(16,255,80,0.06)' }}>
-        <div
-          className="flex items-center gap-2 cursor-pointer py-0.5"
-          onClick={onToggleTC}
-        >
-          <div className="w-1 h-3 flex-shrink-0 transition-all" style={{
-            background: tcActive ? '#00ccff' : '#00ccff44',
-            boxShadow: tcActive ? '0 0 6px #00ccff66' : 'none',
-          }} />
+  const items: HoverInfoListItem[] = [
+    ...REGION_DEFS.map(r => {
+      const active = hlRegion === r.id
+      return {
+        id: r.id,
+        color: REGION_CLR[r.id],
+        active,
+        info: r.info,
+        onClick: () => onSelectRegion(active ? null : r.id),
+        opacity: 1,
+        label: (
           <span style={{
-            color: '#00ccff',
-            opacity: tcActive ? 1 : 0.6,
-            textShadow: tcActive ? '0 0 6px #00ccff44' : 'none',
-          }}>Time Circuit</span>
-        </div>
-        {tcActive && (
-          <p className="text-[8px] leading-relaxed pl-3 pb-1 italic" style={{ color: '#00ccff88' }}>
-            1{'\u2192'}8{'\u2192'}7{'\u2192'}2{'\u2192'}5{'\u2192'}4{'\u2192'}1 — the anticlockwise hydrocycle driven by Surge, Hold, and Sink currents.
-          </p>
-        )}
-      </div>
-    </div>
-  )
+            color: REGION_CLR[r.id],
+            opacity: active ? 1 : 0.6,
+            textShadow: active ? `0 0 6px ${REGION_CLR[r.id]}44` : 'none',
+          }}
+          >{r.label}</span>
+        ),
+        right: <span className="text-gray-700 text-[9px] font-mono">{r.zones}</span>,
+      }
+    }),
+    {
+      id: 'time-circuit',
+      color: '#00ccff',
+      active: tcActive,
+      info: '1\u21928\u21927\u21922\u21925\u21924\u21921 \u2014 the anticlockwise hydrocycle driven by Surge, Hold, and Sink currents.',
+      onClick: onToggleTC,
+      opacity: 1,
+      className: 'mt-1 pt-1',
+      style: { borderTop: '1px solid rgba(16,255,80,0.06)' },
+      label: (
+        <span style={{
+          color: '#00ccff',
+          opacity: tcActive ? 1 : 0.6,
+          textShadow: tcActive ? '0 0 6px #00ccff44' : 'none',
+        }}
+        >Time Circuit</span>
+      ),
+    },
+  ]
+
+  return <HoverInfoList items={items} className="space-y-1" />
 }
