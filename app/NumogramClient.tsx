@@ -13,6 +13,7 @@ import { SYZYGIES } from './data/syzygies'
 // Lib
 import { midpoint, syzMidBiased, loopPath, curveAway, quadPath } from './lib/geometry'
 import { getAnglesForDate } from './lib/planetary'
+import { buildNumogramTitle } from './lib/shareTitle'
 
 // Hooks
 import { useIntro } from './hooks/useIntro'
@@ -227,6 +228,25 @@ export default function NumogramPage() {
   const orbitStartDateRef = useRef<Date | null>(null)
   const urlHydratedRef = useRef(false)
   const pendingShareSelectionRef = useRef<number[] | null>(null)
+
+  const zonesForRegion = useCallback((region: Region): number[] => {
+    const zones: number[] = []
+    for (let z = 0; z <= 9; z++) {
+      if (ZONE_REGION[z] === region) zones.push(z)
+    }
+    return zones
+  }, [])
+
+  const getShareFocusZones = useCallback((selectedIds: number[]): number[] => {
+    const focus = new Set<number>(selectedIds)
+    if (hlRegion) {
+      zonesForRegion(hlRegion).forEach(z => focus.add(z))
+    }
+    if (tcActive) {
+      ;[1, 2, 4, 5, 7, 8].forEach(z => focus.add(z))
+    }
+    return Array.from(focus).sort((a, b) => a - b)
+  }, [hlRegion, tcActive, zonesForRegion])
 
   // Keep orbit start date in sync
   useEffect(() => {
@@ -462,6 +482,7 @@ export default function NumogramPage() {
     }
 
     const selectedParam = params.get('selected')
+    let pendingZones: number[] | null = null
     if (selectedParam) {
       const parsed = Array.from(new Set(
         selectedParam
@@ -471,10 +492,21 @@ export default function NumogramPage() {
       )).sort((a, b) => a - b)
       if (parsed.length > 0) {
         setSelZones(new Set(parsed))
-        pendingShareSelectionRef.current = parsed
+        pendingZones = parsed
       }
     }
-  }, [setPlanetaryAngles, setOrbiting])
+
+    if (!pendingZones && (regionParam === 'torque' || regionParam === 'warp' || regionParam === 'plex')) {
+      pendingZones = zonesForRegion(regionParam)
+    }
+    if (!pendingZones && params.get('tc') === '1') {
+      pendingZones = [1, 2, 4, 5, 7, 8]
+    }
+
+    if (pendingZones && pendingZones.length > 0) {
+      pendingShareSelectionRef.current = pendingZones
+    }
+  }, [setPlanetaryAngles, setOrbiting, zonesForRegion])
 
   useEffect(() => {
     const zones = pendingShareSelectionRef.current
@@ -844,7 +876,17 @@ export default function NumogramPage() {
 
   const onShareExplanation = useCallback(async () => {
     const selectedIds = Array.from(selZones).sort((a, b) => a - b)
-    const shareTitle = selectedIds.length > 0 ? `IDS :: ${selectedIds.join(', ')}` : 'IDS :: ALL'
+    const focusZones = getShareFocusZones(selectedIds)
+    const layerIds = Array.from(layers).sort()
+    const defaultLayerIds = [...DEFAULT_LAYERS].sort()
+    const shareTitle = buildNumogramTitle({
+      layout,
+      selectedIds,
+      layers: layerIds.join(',') !== defaultLayerIds.join(',') ? layerIds.join(',') : undefined,
+      particles: particlesOn,
+      date: layout === 'planetary' ? (planetDate || undefined) : undefined,
+      orbits: layout === 'planetary' && !showOrbits ? '0' : undefined,
+    })
     const summaryBits: string[] = selectedIds.length > 0
       ? [
           `${selectedIds.length} selected ${selectedIds.length === 1 ? 'zone' : 'zones'}`,
@@ -866,8 +908,6 @@ export default function NumogramPage() {
     if (selectedIds.length > 0) {
       baseParams.set('selected', selectedIds.join(','))
     }
-    const layerIds = Array.from(layers).sort()
-    const defaultLayerIds = [...DEFAULT_LAYERS].sort()
     if (layerIds.join(',') !== defaultLayerIds.join(',')) {
       baseParams.set('layers', layerIds.join(','))
     }
@@ -904,7 +944,7 @@ export default function NumogramPage() {
         if (hasImage) {
           finalParams.set('img', data.imageUrl as string)
         } else if (data.missing === true) {
-          const shareDataUrl = await captureShareDataUrl(selectedIds)
+          const shareDataUrl = await captureShareDataUrl(focusZones)
           if (shareDataUrl) {
             const uploadResponse = await fetch('/api/share-image', {
               method: 'POST',
@@ -945,7 +985,7 @@ export default function NumogramPage() {
     } catch {
       // User-cancelled share or unavailable clipboard permissions.
     }
-  }, [layout, selZones, layers, hlRegion, tcActive, particlesOn, planetDate, showOrbits, captureShareDataUrl])
+  }, [layout, selZones, layers, hlRegion, tcActive, particlesOn, planetDate, showOrbits, captureShareDataUrl, getShareFocusZones])
 
   const anyFocus = hlZones.size > 0
 

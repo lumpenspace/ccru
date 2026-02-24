@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 
 import NumogramClient from './NumogramClient'
+import type { Layout } from './data/types'
+import { buildNumogramTitle } from './lib/shareTitle'
 
 type SearchParams = Record<string, string | string[] | undefined>
 
@@ -60,9 +62,14 @@ export async function generateMetadata(
   const selectedIds = parseSelectedIds(firstParam(searchParams.selected))
   const imageUrl = normalizeImageUrl(firstParam(searchParams.img))
 
-  const title = selectedIds.length > 0
-    ? `IDS :: ${selectedIds.join(' · ')}`
-    : 'CCRU Numogram'
+  const title = buildNumogramTitle({
+    layout: layout as Layout,
+    selectedIds,
+    layers: firstParam(searchParams.layers),
+    particles: firstParam(searchParams.particles) as '0' | '1' | undefined,
+    date: firstParam(searchParams.date),
+    orbits: firstParam(searchParams.orbits) as '0' | '1' | undefined,
+  })
   const description = buildShareDescription(layout, selectedIds, {
     region: firstParam(searchParams.region),
     tc: firstParam(searchParams.tc),

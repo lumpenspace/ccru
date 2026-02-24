@@ -16,3 +16,4 @@ node_modules/
 # build artifacts
 tsconfig.tsbuildinfo
 .vercel
+.env*.local

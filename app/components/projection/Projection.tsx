@@ -42,6 +42,7 @@ export const Projection = React.memo(function Projection({
 }: ProjectionProps) {
 
   const isPlanetary = layout === 'planetary'
+  const sunClr = ZONE_CLR[0]
   // In planetary mode, reduce unfocused path opacity to cut visual clutter
   const dimOpacity = isPlanetary ? 0.03 : 0.08
   const getCurrentDestZone = (from: number, to: number, name: string) => (
@@ -114,20 +115,20 @@ export const Projection = React.memo(function Projection({
         </filter>
         <radialGradient id="sphere-0" cx="42%" cy="42%" r="55%" fx="38%" fy="38%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="12%" stopColor="#ffffcc" />
-          <stop offset="35%" stopColor="#ffcc44" />
-          <stop offset="65%" stopColor="#ff8800" />
-          <stop offset="100%" stopColor="#cc4400" />
+          <stop offset="10%" stopColor="#eeeeee" />
+          <stop offset="28%" stopColor={sunClr} />
+          <stop offset="62%" stopColor={sunClr} stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#2b2b2b" />
         </radialGradient>
         <radialGradient id="sun-halo" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#ffcc44" stopOpacity="0.5" />
-          <stop offset="40%" stopColor="#ff8800" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#ff4400" stopOpacity="0" />
+          <stop offset="0%" stopColor={sunClr} stopOpacity="0.35" />
+          <stop offset="40%" stopColor={sunClr} stopOpacity="0.1" />
+          <stop offset="100%" stopColor={sunClr} stopOpacity="0" />
         </radialGradient>
         <radialGradient id="sun-corona" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#ffee88" stopOpacity="0.7" />
-          <stop offset="50%" stopColor="#ffaa44" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#ff6600" stopOpacity="0" />
+          <stop offset="0%" stopColor={sunClr} stopOpacity="0.45" />
+          <stop offset="50%" stopColor={sunClr} stopOpacity="0.12" />
+          <stop offset="100%" stopColor={sunClr} stopOpacity="0" />
         </radialGradient>
         {layout === 'planetary' && [1,2,3,4,5,6,7,8,9].map(z => {
           const pp = planetaryPos[z]
@@ -612,7 +613,7 @@ export const Projection = React.memo(function Projection({
                 {showPlanet && (
                   <text x={p.x} y={p.y + 1}
                     textAnchor="middle" dominantBaseline="central"
-                    fill={isSun ? '#fff8e0' : (act || hl ? clr : `${clr}bb`)}
+                    fill="#000000"
                     fontSize={isSun ? 24 : Math.max(12, nodeR * 0.9)} fontWeight="bold"
                     style={{ pointerEvents: 'none' }}
                   >{PLANET_SYMBOL[z]}</text>

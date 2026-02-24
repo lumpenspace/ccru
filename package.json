@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:share-image": "node scripts/share-image-self-check.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
