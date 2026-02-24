@@ -157,12 +157,26 @@ const DESKTOP_PANEL_LEFT_X = 12
 const DESKTOP_PANEL_RIGHT_X = 216
 const PANEL_WIDTH = 180
 const INFO_PANEL_WIDTH = 320
+const MAX_HISTORY_ENTRIES = 80
 const SOURCE_LINKS = [
   { label: '1', href: 'http://www.ccru.net/declab.htm' },
   { label: '2', href: 'https://socialecologies.wordpress.com/2025/08/17/the-numogram-diagram-time-circuits-and-acceleration/' },
   { label: '3', href: 'https://oh4.co/site/numogrammaticism.html' },
   { label: '4', href: 'https://drive.google.com/file/d/1ReZnkaZxsdNgEFghEZqDvpDoxhhTWHQ6/view?usp=drive_link' },
 ] as const
+
+type HistorySnapshot = {
+  layout: Layout
+  layers: Layer[]
+  selZones: number[]
+  hlRegion: Region | null
+  tcActive: boolean
+  particlesOn: boolean
+  showOrbits: boolean
+  planetDate: string
+  orbiting: boolean
+  labelVisibility: LabelVisibility
+}
 
 export default function NumogramPage() {
   // ── State ──────────────────────────────────────────────────
@@ -195,6 +209,9 @@ export default function NumogramPage() {
   const infoPanelInitRef = useRef(false)
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
   const [shareCopied, setShareCopied] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [undoStack, setUndoStack] = useState<HistorySnapshot[]>([])
+  const [redoStack, setRedoStack] = useState<HistorySnapshot[]>([])
   const [desktopPanelHeights, setDesktopPanelHeights] = useState<Partial<Record<PanelId, number>>>({})
   const [labelVisibility, setLabelVisibility] = useState<LabelVisibility>({
     numbers: true,
@@ -228,6 +245,9 @@ export default function NumogramPage() {
   const orbitStartDateRef = useRef<Date | null>(null)
   const urlHydratedRef = useRef(false)
   const pendingShareSelectionRef = useRef<number[] | null>(null)
+  const historyReadyRef = useRef(false)
+  const historyCurrentRef = useRef<HistorySnapshot | null>(null)
+  const historyApplyingRef = useRef(false)
 
   const zonesForRegion = useCallback((region: Region): number[] => {
     const zones: number[] = []
@@ -247,6 +267,57 @@ export default function NumogramPage() {
     }
     return Array.from(focus).sort((a, b) => a - b)
   }, [hlRegion, tcActive, zonesForRegion])
+
+  const snapshotState = useCallback((): HistorySnapshot => ({
+    layout,
+    layers: Array.from(layers).sort((a, b) => a.localeCompare(b)),
+    selZones: Array.from(selZones).sort((a, b) => a - b),
+    hlRegion,
+    tcActive,
+    particlesOn,
+    showOrbits,
+    planetDate,
+    orbiting,
+    labelVisibility: {
+      numbers: labelVisibility.numbers,
+      xenotation: labelVisibility.xenotation,
+      planets: labelVisibility.planets,
+    },
+  }), [layout, layers, selZones, hlRegion, tcActive, particlesOn, showOrbits, planetDate, orbiting, labelVisibility])
+
+  const snapshotKey = useCallback((snapshot: HistorySnapshot): string => {
+    return JSON.stringify(snapshot)
+  }, [])
+
+  const applySnapshot = useCallback((snapshot: HistorySnapshot) => {
+    if (layout !== snapshot.layout) {
+      switchLayout()
+      setLayout(snapshot.layout)
+    } else {
+      setLayout(snapshot.layout)
+    }
+    setLayers(new Set(snapshot.layers))
+    setSelZones(new Set(snapshot.selZones))
+    setHlRegion(snapshot.hlRegion)
+    setTcActive(snapshot.tcActive)
+    setParticlesOn(snapshot.particlesOn)
+    setShowOrbits(snapshot.showOrbits)
+    setPlanetDate(snapshot.planetDate)
+    setOrbiting(snapshot.orbiting)
+    setLabelVisibility({
+      numbers: snapshot.labelVisibility.numbers,
+      xenotation: snapshot.labelVisibility.xenotation,
+      planets: snapshot.labelVisibility.planets,
+    })
+
+    if (snapshot.layout === 'planetary') {
+      if (snapshot.planetDate) {
+        setPlanetaryAngles(getAnglesForDate(new Date(`${snapshot.planetDate}T12:00:00`)))
+      } else if (!snapshot.orbiting) {
+        setPlanetaryAngles(PLANETARY_DEFAULT_ANGLE)
+      }
+    }
+  }, [layout, switchLayout, setPlanetaryAngles, setOrbiting])
 
   // Keep orbit start date in sync
   useEffect(() => {
@@ -627,6 +698,76 @@ export default function NumogramPage() {
   }, [])
 
   useEffect(() => {
+    const currentSnapshot = snapshotState()
+
+    if (!historyReadyRef.current) {
+      historyReadyRef.current = true
+      historyCurrentRef.current = currentSnapshot
+      return
+    }
+
+    const previousSnapshot = historyCurrentRef.current
+    if (!previousSnapshot) {
+      historyCurrentRef.current = currentSnapshot
+      return
+    }
+
+    if (snapshotKey(previousSnapshot) === snapshotKey(currentSnapshot)) return
+
+    if (historyApplyingRef.current) {
+      historyApplyingRef.current = false
+      historyCurrentRef.current = currentSnapshot
+      return
+    }
+
+    if (orbiting) {
+      historyCurrentRef.current = currentSnapshot
+      return
+    }
+
+    setUndoStack(prev => {
+      const next = [...prev, previousSnapshot]
+      return next.length > MAX_HISTORY_ENTRIES
+        ? next.slice(next.length - MAX_HISTORY_ENTRIES)
+        : next
+    })
+    setRedoStack([])
+    historyCurrentRef.current = currentSnapshot
+  }, [snapshotState, snapshotKey, orbiting])
+
+  const onUndo = useCallback(() => {
+    if (undoStack.length === 0) return
+    const target = undoStack[undoStack.length - 1]
+    const remaining = undoStack.slice(0, -1)
+    const current = historyCurrentRef.current
+    setUndoStack(remaining)
+    if (current) {
+      setRedoStack(next => [current, ...next].slice(0, MAX_HISTORY_ENTRIES))
+    }
+    historyApplyingRef.current = true
+    historyCurrentRef.current = target
+    applySnapshot(target)
+  }, [undoStack, applySnapshot])
+
+  const onRedo = useCallback(() => {
+    if (redoStack.length === 0) return
+    const [target, ...remaining] = redoStack
+    const current = historyCurrentRef.current
+    setRedoStack(remaining)
+    if (current) {
+      setUndoStack(next => {
+        const appended = [...next, current]
+        return appended.length > MAX_HISTORY_ENTRIES
+          ? appended.slice(appended.length - MAX_HISTORY_ENTRIES)
+          : appended
+      })
+    }
+    historyApplyingRef.current = true
+    historyCurrentRef.current = target
+    applySnapshot(target)
+  }, [redoStack, applySnapshot])
+
+  useEffect(() => {
     const isTypingTarget = (target: EventTarget | null): boolean => {
       const el = target as HTMLElement | null
       if (!el) return false
@@ -638,10 +779,33 @@ export default function NumogramPage() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return
       if (isTypingTarget(e.target)) return
-      if (e.metaKey || e.ctrlKey || e.altKey) return
       const key = e.key.toLowerCase()
+      const hasUndoModifier = (e.metaKey || e.ctrlKey) && !e.altKey
+
+      if (hasUndoModifier && key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) onRedo()
+        else onUndo()
+        return
+      }
+      if (hasUndoModifier && key === 'y') {
+        e.preventDefault()
+        onRedo()
+        return
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      if ((key === '?' || key === '/') && e.shiftKey) {
+        e.preventDefault()
+        setShortcutsOpen(open => !open)
+        return
+      }
 
       if (key === 'escape') {
+        if (shortcutsOpen) {
+          setShortcutsOpen(false)
+          return
+        }
         setSelZones(new Set())
         return
       }
@@ -669,9 +833,11 @@ export default function NumogramPage() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleSwitchLayout, onSelectGate])
+  }, [handleSwitchLayout, onSelectGate, onUndo, onRedo, shortcutsOpen])
 
   // ── Computed values ────────────────────────────────────────
+  const canUndo = undoStack.length > 0
+  const canRedo = redoStack.length > 0
   const isMobile = viewport.w > 0 && viewport.w <= MOBILE_SELECTOR_BREAKPOINT
   const isDesktop = viewport.w > MOBILE_SELECTOR_BREAKPOINT
   const mobilePanelWidth = useMemo(() => {
@@ -1566,29 +1732,13 @@ export default function NumogramPage() {
             background: 'linear-gradient(180deg, rgba(8,12,20,0.82) 0%, rgba(4,7,13,0.9) 100%)',
           }}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center">
             <span
               className="text-[9px] tracking-[0.28em] uppercase"
               style={{ color: '#10ff50', textShadow: '0 0 6px rgba(16,255,80,0.3)' }}
             >
               Numogram
             </span>
-            <div className="flex items-center gap-2">
-              <span className="text-[8px] tracking-[0.18em] uppercase text-gray-500">Sources</span>
-              {SOURCE_LINKS.map(link => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[8px] tracking-[0.12em] transition-opacity hover:opacity-100"
-                  style={{ color: '#6b7280', opacity: 0.85 }}
-                  aria-label={`Source ${link.label}`}
-                >
-                  [{link.label}]
-                </a>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -1704,6 +1854,34 @@ export default function NumogramPage() {
           <button
             className="ml-auto text-[8px] uppercase tracking-[0.15em] px-2 py-1"
             style={{
+              color: canUndo ? '#6b7280' : '#4b5563',
+              border: `1px solid ${canUndo ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
+              background: canUndo ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
+              opacity: canUndo ? 1 : 0.45,
+            }}
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Cmd/Ctrl+Z)"
+          >
+            undo
+          </button>
+          <button
+            className="text-[8px] uppercase tracking-[0.15em] px-2 py-1"
+            style={{
+              color: canRedo ? '#6b7280' : '#4b5563',
+              border: `1px solid ${canRedo ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
+              background: canRedo ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
+              opacity: canRedo ? 1 : 0.45,
+            }}
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Shift+Cmd/Ctrl+Z)"
+          >
+            redo
+          </button>
+          <button
+            className="text-[8px] uppercase tracking-[0.15em] px-2 py-1"
+            style={{
               color: selZones.size > 0 ? '#6b7280' : '#4b5563',
               border: `1px solid ${selZones.size > 0 ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
               background: selZones.size > 0 ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
@@ -1739,22 +1917,86 @@ export default function NumogramPage() {
         </div>
       </Panel>
 
-      {/* Controls hint */}
-      <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-[72] pointer-events-none">
+      <button
+        className="fixed bottom-3 right-3 z-[74] px-2.5 py-1 text-[8px] uppercase tracking-[0.17em]"
+        style={{
+          color: shortcutsOpen ? '#10ff50' : '#6b7280',
+          border: `1px solid ${shortcutsOpen ? 'rgba(16,255,80,0.35)' : 'rgba(107,114,128,0.35)'}`,
+          background: shortcutsOpen ? 'rgba(16,255,80,0.08)' : 'rgba(107,114,128,0.06)',
+        }}
+        onClick={() => setShortcutsOpen(open => !open)}
+      >
+        shortcuts
+      </button>
+
+      <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-[62] pointer-events-auto">
         <div
-          className="px-3 py-1 text-[9px] md:text-[10px] tracking-[0.14em] uppercase font-mono text-center"
+          className="px-3 py-1 text-[8px] md:text-[9px] tracking-[0.14em] uppercase font-mono text-center"
           style={{
-            color: 'rgba(16,255,80,0.75)',
-            background: 'linear-gradient(180deg, rgba(6,10,16,0.72) 0%, rgba(3,6,12,0.8) 100%)',
-            border: '1px solid rgba(16,255,80,0.2)',
-            boxShadow: '0 0 16px rgba(16,255,80,0.08)',
+            color: 'rgba(107,114,128,0.92)',
+            background: 'linear-gradient(180deg, rgba(6,10,16,0.72) 0%, rgba(3,6,12,0.82) 100%)',
+            border: '1px solid rgba(107,114,128,0.22)',
+            boxShadow: '0 0 12px rgba(0,0,0,0.2)',
             whiteSpace: 'normal',
             maxWidth: 'calc(100vw - 16px)',
           }}
         >
-          click + drag to select · alt + drag to move · scroll to zoom · digits to toggle gates · asdf to change view
+          <span className="mr-2">sources</span>
+          {SOURCE_LINKS.map(link => (
+            <a
+              key={link.label}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block mr-1 last:mr-2 hover:opacity-100 transition-opacity"
+              style={{ color: '#9ca3af', opacity: 0.86 }}
+              aria-label={`Source ${link.label}`}
+            >
+              [{link.label}]
+            </a>
+          ))}
+          <span style={{ color: '#6b7280' }}>(c) qliphoth.systems / delight nexus</span>
         </div>
       </div>
+
+      {shortcutsOpen && (
+        <div className="fixed inset-0 z-[84] flex items-center justify-center px-4">
+          <button
+            className="absolute inset-0"
+            style={{ background: 'rgba(0,0,0,0.62)' }}
+            onClick={() => setShortcutsOpen(false)}
+            aria-label="Close shortcuts"
+          />
+          <div
+            className="relative w-full max-w-[540px] px-4 py-4 font-mono"
+            style={{
+              border: '1px solid rgba(16,255,80,0.28)',
+              background: 'linear-gradient(180deg, rgba(10,14,24,0.94) 0%, rgba(4,8,14,0.97) 100%)',
+              boxShadow: '0 0 28px rgba(16,255,80,0.08)',
+            }}
+          >
+            <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid rgba(16,255,80,0.14)' }}>
+              <span className="text-[10px] tracking-[0.22em] uppercase" style={{ color: '#10ff50' }}>
+                Shortcuts
+              </span>
+              <button
+                className="text-[8px] uppercase tracking-[0.14em] px-2 py-1"
+                style={{ color: '#6b7280', border: '1px solid rgba(107,114,128,0.35)' }}
+                onClick={() => setShortcutsOpen(false)}
+              >
+                close
+              </button>
+            </div>
+            <div className="pt-3 grid gap-1.5 text-[10px]" style={{ color: '#9ca3af' }}>
+              <div><span style={{ color: '#10ff50' }}>Mouse:</span> click+drag select, alt+drag pan, scroll zoom</div>
+              <div><span style={{ color: '#10ff50' }}>Layout:</span> A original, S labyrinth, D ladder, F planetary</div>
+              <div><span style={{ color: '#10ff50' }}>Selection:</span> digits 0-9 toggle corresponding gate, Esc clears selection</div>
+              <div><span style={{ color: '#10ff50' }}>History:</span> Cmd/Ctrl+Z undo, Shift+Cmd/Ctrl+Z redo, Ctrl+Y redo</div>
+              <div><span style={{ color: '#10ff50' }}>Overlay:</span> Shift+/ toggles this shortcuts panel</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
