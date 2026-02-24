@@ -107,17 +107,18 @@ export function canonicalizeShareParams(input: RawShareParams): CanonicalSharePa
   })
 
   if (!raw.has('layout')) fail('Missing required share param "layout".')
-  if (!raw.has('selected')) fail('Missing required share param "selected".')
 
   const layout = raw.get('layout') as Layout
   if (!ALLOWED_LAYOUTS.has(layout)) fail('Invalid layout value.')
 
-  const selected = parseDigitSet(raw.get('selected') || '')
-  if (!selected) fail('Invalid selected value. Must be unique digits in range 0-9.')
-
   const params: ShareParamMap = {
     layout,
-    selected: selected.join(','),
+  }
+
+  if (raw.has('selected')) {
+    const selected = parseDigitSet(raw.get('selected') || '')
+    if (!selected) fail('Invalid selected value. Must be unique digits in range 0-9.')
+    params.selected = selected.join(',')
   }
 
   if (raw.has('layers')) {

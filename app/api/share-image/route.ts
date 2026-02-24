@@ -5,19 +5,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { canonicalizeShareParams } from '@/app/lib/shareParams'
 
 export const runtime = 'nodejs'
+const MAX_SHARE_IMAGE_BYTES = 6 * 1024 * 1024
 
 function signatureForParams(sortedParamKeys: string[], sortedValues: string[]): string {
   const material = `params:${sortedParamKeys.join('|')}::values:${sortedValues.join('|')}`
   return createHash('sha256').update(material).digest('hex')
 }
 
-async function renderPreview(origin: string, canonicalQuery: string): Promise<Buffer> {
-  const url = `${origin}/api/share-preview?${canonicalQuery}`
-  const response = await fetch(url, { cache: 'no-store' })
-  if (!response.ok) {
-    throw new Error(`Failed to render preview image (${response.status}).`)
+function decodePngDataUrl(input: string): Buffer {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(input.trim())
+  if (!match) {
+    throw new Error('Invalid share image payload. Expected PNG data URL.')
   }
-  return Buffer.from(await response.arrayBuffer())
+  const png = Buffer.from(match[1], 'base64')
+  if (png.length === 0) {
+    throw new Error('Share image payload is empty.')
+  }
+  if (png.length > MAX_SHARE_IMAGE_BYTES) {
+    throw new Error('Share image payload exceeds size limit.')
+  }
+  return png
 }
 
 export async function POST(req: NextRequest) {
@@ -31,6 +38,7 @@ export async function POST(req: NextRequest) {
     const canonical = canonicalizeShareParams(rawParams)
     const signature = signatureForParams(canonical.sortedParamKeys, canonical.sortedValues)
     const pathname = `numogram/share/${signature}.png`
+    const suppliedDataUrl = typeof body?.dataUrl === 'string' ? body.dataUrl : null
 
     // Must verify this image does not already exist before any generation/upload.
     try {
@@ -47,7 +55,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const png = await renderPreview(req.nextUrl.origin, canonical.canonicalQuery)
+    if (!suppliedDataUrl) {
+      return NextResponse.json({
+        missing: true,
+        signature,
+        canonicalQuery: canonical.canonicalQuery,
+      })
+    }
+
+    const png = decodePngDataUrl(suppliedDataUrl)
 
     try {
       const uploaded = await put(pathname, png, {
