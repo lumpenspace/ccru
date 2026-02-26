@@ -5,7 +5,13 @@ import type { HoverInfo } from '../../data/types'
 import { ZONE_CLR, ZONE_REGION, ZONE_META } from '../../data/zones'
 import { REGION_CLR } from '../../lib/constants'
 import { formatXenotationForDisplay } from '../../lib/xenotation'
-import { PanelColorBar, PanelCountToggleButton, PanelList, PanelRow, SidePopover } from './shared'
+import {
+  PanelColorBar,
+  PanelCountToggleButton,
+  SelectableListPanel,
+  SidePopover,
+  type SelectableListDisplayProps,
+} from './shared'
 
 interface ZonesPanelProps {
   selZones: Set<number>
@@ -29,42 +35,50 @@ export function ZonesPanel({ selZones, hlZones, onToggleZone, onToggleAll, onHov
     })
   }
 
+  type ZoneItem = { zone: number; color: string; xenotation: string; isSelected: boolean; isHighlighted: boolean }
+  const zoneItems: ZoneItem[] = Array.from({ length: 10 }, (_, zone) => ({
+    zone,
+    color: ZONE_CLR[zone],
+    xenotation: formatXenotationForDisplay(zone),
+    isSelected: selZones.has(zone),
+    isHighlighted: hlZones.has(zone),
+  }))
+
+  const ZoneItemDisplay = ({ item }: SelectableListDisplayProps<ZoneItem>) => {
+    const meta = ZONE_META[item.zone]
+    return (
+      <>
+        <PanelColorBar color={item.color} active={item.isSelected} />
+        <span style={{ color: item.color, fontSize: '10px' }}>{item.zone}</span>
+        <span className="text-gray-600 text-[9px]">{meta.planet}</span>
+        <span
+          className="text-[8px] tracking-[0.08em] text-gray-500"
+          onMouseEnter={item.zone === 1 && item.xenotation === 'n/a' ? e => showNAOverlay(e, item.color) : undefined}
+          onMouseLeave={item.zone === 1 && item.xenotation === 'n/a' ? () => setHoverCard(null) : undefined}
+        >
+          {item.xenotation}
+        </span>
+        <span className="text-[8px] ml-auto" style={{ color: REGION_CLR[ZONE_REGION[item.zone]], opacity: 0.5 }}>
+          {ZONE_REGION[item.zone]}
+        </span>
+      </>
+    )
+  }
+
   return (
-    <PanelList>
-      <PanelCountToggleButton selectedCount={selZones.size} total={10} onClick={onToggleAll} />
-      {Array.from({ length: 10 }, (_, z) => {
-        const clr = ZONE_CLR[z]
-        const meta = ZONE_META[z]
-        const xenotation = formatXenotationForDisplay(z)
-        const isSelected = selZones.has(z)
-        const isHl = hlZones.has(z)
-        return (
-          <div key={z}>
-            <PanelRow
-              opacity={isSelected || isHl ? 1 : 0.5}
-              onClick={() => onToggleZone(z)}
-              onMouseEnter={() => onHoverInfo({ type: 'zone', zone: z })}
-              onMouseLeave={() => {
-                onHoverInfo(null)
-                setHoverCard(null)
-              }}
-            >
-              <PanelColorBar color={clr} active={isSelected} />
-              <span style={{ color: clr, fontSize: '10px' }}>{z}</span>
-              <span className="text-gray-600 text-[9px]">{meta.planet}</span>
-              <span
-                className="text-[8px] tracking-[0.08em] text-gray-500"
-                onMouseEnter={z === 1 && xenotation === 'n/a' ? e => showNAOverlay(e, clr) : undefined}
-                onMouseLeave={z === 1 && xenotation === 'n/a' ? () => setHoverCard(null) : undefined}
-              >
-                {xenotation}
-              </span>
-              <span className="text-[8px] ml-auto" style={{ color: REGION_CLR[ZONE_REGION[z]], opacity: 0.5 }}>{ZONE_REGION[z]}</span>
-            </PanelRow>
-          </div>
-        )
-      })}
-      <SidePopover card={hoverCard} />
-    </PanelList>
+    <SelectableListPanel
+      items={zoneItems}
+      getKey={item => item.zone}
+      header={<PanelCountToggleButton selectedCount={selZones.size} total={10} onClick={onToggleAll} />}
+      footer={<SidePopover card={hoverCard} />}
+      onItemSelect={item => onToggleZone(item.zone)}
+      onItemMouseEnter={item => onHoverInfo({ type: 'zone', zone: item.zone })}
+      onItemMouseLeave={() => {
+        onHoverInfo(null)
+        setHoverCard(null)
+      }}
+      getItemOpacity={item => (item.isSelected || item.isHighlighted ? 1 : 0.5)}
+      ItemDisplayComponent={ZoneItemDisplay}
+    />
   )
 }

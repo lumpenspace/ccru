@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React from 'react'
 import type { Layout, Layer, Pos, HoverInfo, GateRender, CurrentRender, LabelVisibility } from '../../data/types'
 import { ZONE_CLR, ZONE_REGION, ZONE_META, PLANET_SYMBOL } from '../../data/zones'
 import { PLANETARY_CX, PLANETARY_CY, PLANETARY_SIZE } from '../../data/positions'
@@ -103,10 +103,10 @@ export const Projection = React.memo(function Projection({
       <defs>
         <filter id="gl"><feGaussianBlur stdDeviation="3" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         <filter id="gl2"><feGaussianBlur stdDeviation="5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-        <marker id="arr-c" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="7" markerHeight="5" orient="auto">
+        <marker id="arr-c" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="9" markerHeight="7" orient="auto">
           <path d="M0,0.5 L7,3 L0,5.5" fill="#22ee66" />
         </marker>
-        <marker id="arr-g" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="6" markerHeight="4" orient="auto">
+        <marker id="arr-g" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="8" markerHeight="6" orient="auto">
           <path d="M0,0.5 L7,3 L0,5.5" fill="#cc44ff" />
         </marker>
         <filter id="sunGlow">

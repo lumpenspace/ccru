@@ -1,100 +1,100 @@
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-
-import NumogramClient from './NumogramClient'
-import type { Layout } from './data/types'
-import { buildNumogramTitle } from './lib/shareTitle'
 
 type SearchParams = Record<string, string | string[] | undefined>
 
-function firstParam(v: string | string[] | undefined): string | undefined {
-  if (typeof v === 'string') return v
-  if (Array.isArray(v) && v.length > 0) return v[0]
-  return undefined
-}
+const NUMOGRAM_QUERY_KEYS = new Set([
+  'layout',
+  'selected',
+  'layers',
+  'region',
+  'tc',
+  'particles',
+  'date',
+  'orbits',
+  'img',
+])
 
-function parseSelectedIds(selected?: string): number[] {
-  if (!selected) return []
-  const set = new Set<number>()
-  for (const part of selected.split(',')) {
-    const n = Number(part.trim())
-    if (Number.isInteger(n) && n >= 0 && n <= 9) set.add(n)
+function toQueryString(searchParams: SearchParams): string {
+  const params = new URLSearchParams()
+  for (const [key, raw] of Object.entries(searchParams)) {
+    if (typeof raw === 'string') {
+      params.set(key, raw)
+      continue
+    }
+    if (Array.isArray(raw)) {
+      for (const value of raw) params.append(key, value)
+    }
   }
-  return Array.from(set).sort((a, b) => a - b)
+  return params.toString()
 }
 
-function normalizeImageUrl(raw?: string): string | undefined {
-  if (!raw) return undefined
-  try {
-    const url = new URL(raw)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
-    return url.toString()
-  } catch {
-    return undefined
-  }
+function hasNumogramQuery(searchParams: SearchParams): boolean {
+  return Object.keys(searchParams).some(key => NUMOGRAM_QUERY_KEYS.has(key))
 }
 
-function buildShareDescription(
-  layout: string,
-  selectedIds: number[],
-  params: { region?: string; tc?: string; particles?: string; date?: string; orbits?: string }
-): string {
-  if (selectedIds.length === 0) {
-    return 'Interactive visualization of the Decimal Labyrinth.'
+export const metadata: Metadata = {
+  title: 'QLIPHOTH Systems',
+  description: 'Global entrypoint for Numogram, Cifers, Components, and the standalone Gematria module.',
+}
+
+export default function GlobalHome({ searchParams }: { searchParams: SearchParams }) {
+  if (hasNumogramQuery(searchParams)) {
+    const query = toQueryString(searchParams)
+    redirect(`/numogram${query ? `?${query}` : ''}`)
   }
 
-  const bits: string[] = [
-    `${selectedIds.length} selected ${selectedIds.length === 1 ? 'zone' : 'zones'}`,
-    `${layout} layout`,
-  ]
-  if (params.region) bits.push(`${params.region} region`)
-  if (params.tc === '1') bits.push('tc enabled')
-  if (params.particles === '1') bits.push('particles enabled')
-  if (params.date) bits.push(`date ${params.date}`)
-  if (params.orbits === '0') bits.push('orbits hidden')
+  return (
+    <main className="min-h-screen bg-[#05070d] text-gray-200 font-mono">
+      <div className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col justify-center px-4 py-10">
+        <h1 className="text-2xl md:text-3xl uppercase tracking-[0.2em] text-gray-100">QLIPHOTH Systems</h1>
+        <p className="mt-2 text-sm tracking-[0.08em] text-gray-400">
+          Shared homepage for the project tools.
+        </p>
 
-  return bits.join(' · ')
-}
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Link
+            href="/numogram"
+            className="block border border-[#334155] bg-[#0b111a] p-4 transition-colors hover:border-[#10ff50]"
+          >
+            <h2 className="text-sm uppercase tracking-[0.16em] text-[#10ff50]">Numogram</h2>
+            <p className="mt-2 text-sm text-gray-300">
+              Interactive decimal labyrinth with shareable state and preview images.
+            </p>
+          </Link>
 
-export async function generateMetadata(
-  { searchParams }: { searchParams: SearchParams }
-): Promise<Metadata> {
-  const layout = firstParam(searchParams.layout) || 'labyrinth'
-  const selectedIds = parseSelectedIds(firstParam(searchParams.selected))
-  const imageUrl = normalizeImageUrl(firstParam(searchParams.img))
+          <Link
+            href="/cyphers"
+            className="block border border-[#334155] bg-[#0b111a] p-4 transition-colors hover:border-[#10ff50]"
+          >
+            <h2 className="text-sm uppercase tracking-[0.16em] text-[#10ff50]">Cifers</h2>
+            <p className="mt-2 text-sm text-gray-300">
+              CCRU gematria page with React component notes, Chrome plugin scaffold, and live calculator.
+            </p>
+          </Link>
 
-  const title = buildNumogramTitle({
-    layout: layout as Layout,
-    selectedIds,
-    layers: firstParam(searchParams.layers),
-    particles: firstParam(searchParams.particles) as '0' | '1' | undefined,
-    date: firstParam(searchParams.date),
-    orbits: firstParam(searchParams.orbits) as '0' | '1' | undefined,
-  })
-  const description = buildShareDescription(layout, selectedIds, {
-    region: firstParam(searchParams.region),
-    tc: firstParam(searchParams.tc),
-    particles: firstParam(searchParams.particles),
-    date: firstParam(searchParams.date),
-    orbits: firstParam(searchParams.orbits),
-  })
+          <Link
+            href="/components"
+            className="block border border-[#334155] bg-[#0b111a] p-4 transition-colors hover:border-[#10ff50]"
+          >
+            <h2 className="text-sm uppercase tracking-[0.16em] text-[#10ff50]">Components</h2>
+            <p className="mt-2 text-sm text-gray-300">
+              Showcase of extracted UI primitives and the cypher hover React component.
+            </p>
+          </Link>
 
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      images: imageUrl ? [{ url: imageUrl, width: 1200, height: 630, alt: title }] : undefined,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: imageUrl ? [imageUrl] : undefined,
-    },
-  }
-}
-
-export default function Page() {
-  return <NumogramClient />
+          <Link
+            href="/gematria"
+            className="block border border-[#334155] bg-[#0b111a] p-4 transition-colors hover:border-[#10ff50]"
+          >
+            <h2 className="text-sm uppercase tracking-[0.16em] text-[#10ff50]">Gematria</h2>
+            <p className="mt-2 text-sm text-gray-300">
+              Standalone module for the Chrome plugin, settings, and saved phrase list.
+            </p>
+          </Link>
+        </div>
+      </div>
+    </main>
+  )
 }

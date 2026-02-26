@@ -5,11 +5,11 @@
 html,
 body {
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
 }
 
 body {
+  overflow-x: hidden;
   background: #060609;
   color: #d1d5db;
 }
@@ -66,4 +66,158 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+/* Layout switch glitch pulse */
+.layout-switch-glitch {
+  animation: layout-glitch-shift 360ms steps(2, end);
+  will-change: transform, filter;
+}
+
+.layout-switch-glitch-overlay {
+  background:
+    linear-gradient(90deg,
+      rgba(255, 40, 120, 0.12) 0%,
+      transparent 35%,
+      rgba(0, 220, 255, 0.14) 70%,
+      transparent 100%),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.07) 0px,
+      rgba(255, 255, 255, 0.07) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  mix-blend-mode: screen;
+  animation: layout-glitch-overlay 360ms steps(2, end);
+}
+
+@keyframes layout-glitch-shift {
+  0% {
+    transform: translate3d(0, 0, 0) skewX(0deg);
+    filter: none;
+  }
+  18% {
+    transform: translate3d(-7px, 1px, 0) skewX(0.8deg);
+    filter: saturate(1.35) hue-rotate(-20deg);
+  }
+  42% {
+    transform: translate3d(6px, -1px, 0) skewX(-0.7deg);
+    filter: contrast(1.18) hue-rotate(18deg);
+  }
+  68% {
+    transform: translate3d(-3px, 0, 0) skewX(0.45deg);
+    filter: saturate(1.22);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) skewX(0deg);
+    filter: none;
+  }
+}
+
+@keyframes layout-glitch-overlay {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    opacity: 0.58;
+    transform: translate3d(-12px, 0, 0);
+  }
+  46% {
+    opacity: 0.4;
+    transform: translate3d(10px, 0, 0);
+  }
+  72% {
+    opacity: 0.28;
+    transform: translate3d(-5px, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layout-switch-glitch,
+  .layout-switch-glitch-overlay {
+    animation: none;
+  }
+
+  .layout-switch-glitch-overlay {
+    opacity: 0;
+  }
+}
+
+/* Utility glitch primitives used in /components showcase */
+.ui-glitch-text {
+  will-change: filter, transform;
+}
+
+.ui-glitch-transition {
+  animation: ui-glitch-transition 240ms steps(2, end);
+}
+
+@keyframes ui-glitch-transition {
+  0% {
+    filter: none;
+    transform: translate3d(0, 0, 0);
+  }
+  35% {
+    filter: hue-rotate(-18deg) saturate(1.35);
+    transform: translate3d(-1px, 0, 0);
+  }
+  70% {
+    filter: hue-rotate(12deg) contrast(1.2);
+    transform: translate3d(1px, 0, 0);
+  }
+  100% {
+    filter: none;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Terminal-like text fields */
+.ui-terminal-field {
+  position: relative;
+  display: block;
+  padding-right: 14px;
+  border-bottom: 1px solid rgba(16, 255, 80, 0.35);
+}
+
+.ui-terminal-field::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(16,255,80,0.7), rgba(16,255,80,0.08));
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.ui-terminal-field:focus-within::after {
+  opacity: 1;
+}
+
+.ui-terminal-field.ui-terminal-field-area {
+  padding-right: 16px;
+}
+
+.ui-terminal-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  caret-color: #10ff50;
+  caret-shape: block;
+}
+
+.ui-terminal-input::placeholder {
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.ui-terminal-input.ui-terminal-area {
+  min-height: 84px;
 }

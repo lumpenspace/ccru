@@ -346,6 +346,7 @@ interface InfoDisplayProps {
   pinnedInfo: HoverInfo | null
   selectedInfos?: HoverInfo[]
   onRemoveSelectedInfo?: (info: HoverInfo) => void
+  onHoverSelectedInfo?: (info: HoverInfo | null) => void
 }
 
 function selectedInfoKey(info: HoverInfo): string {
@@ -418,7 +419,13 @@ function NumogramIntro() {
   )
 }
 
-export function InfoDisplay({ hoverInfo, pinnedInfo, selectedInfos = [], onRemoveSelectedInfo }: InfoDisplayProps) {
+export function InfoDisplay({
+  hoverInfo,
+  pinnedInfo,
+  selectedInfos = [],
+  onRemoveSelectedInfo,
+  onHoverSelectedInfo,
+}: InfoDisplayProps) {
   const info = hoverInfo || pinnedInfo
   const selectedByKey = new Map(selectedInfos.map(si => [selectedInfoKey(si), si]))
   const selectedKeys = selectedInfos.map(selectedInfoKey)
@@ -451,6 +458,8 @@ export function InfoDisplay({ hoverInfo, pinnedInfo, selectedInfos = [], onRemov
           color: meta.color,
           content: renderInfoContent(si),
           onRemove: onRemoveSelectedInfo ? () => onRemoveSelectedInfo(si) : undefined,
+          onHoverStart: onHoverSelectedInfo ? () => onHoverSelectedInfo(si) : undefined,
+          onHoverEnd: onHoverSelectedInfo ? () => onHoverSelectedInfo(null) : undefined,
         })
         return acc
       }, [])

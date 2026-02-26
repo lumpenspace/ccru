@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { PanelColorBar, PanelList, PanelRow, SidePopover } from './shared'
+import { PanelColorBar, SelectableListPanel, SidePopover } from './shared'
 
 export interface HoverInfoListItem {
   id: string
@@ -36,17 +36,18 @@ export function HoverInfoList({ items, className = '' }: HoverInfoListProps) {
   }
 
   return (
-    <PanelList className={`relative ${className}`}>
-      {items.map(item => (
-        <PanelRow
-          key={item.id}
-          className={item.className}
-          style={item.style}
-          opacity={item.opacity ?? (item.active ? 1 : 0.3)}
-          onClick={item.onClick}
-          onMouseEnter={e => showHoverCard(e, item.info, item.color)}
-          onMouseLeave={() => setHoverCard(null)}
-        >
+    <SelectableListPanel
+      items={items}
+      className={`relative ${className}`}
+      getKey={item => item.id}
+      onItemSelect={item => item.onClick()}
+      onItemMouseEnter={(item, _index, event) => showHoverCard(event, item.info, item.color)}
+      onItemMouseLeave={() => setHoverCard(null)}
+      getItemClassName={item => item.className}
+      getItemStyle={item => item.style}
+      getItemOpacity={item => item.opacity ?? (item.active ? 1 : 0.3)}
+      itemDisplay={({ item }) => (
+        <>
           <PanelColorBar
             color={item.color}
             active={item.active}
@@ -54,9 +55,9 @@ export function HoverInfoList({ items, className = '' }: HoverInfoListProps) {
           />
           {item.label}
           {item.right && <span className="ml-auto">{item.right}</span>}
-        </PanelRow>
-      ))}
-      <SidePopover card={hoverCard} />
-    </PanelList>
+        </>
+      )}
+      footer={<SidePopover card={hoverCard} />}
+    />
   )
 }
