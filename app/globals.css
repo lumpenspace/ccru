@@ -221,3 +221,43 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .ui-terminal-input.ui-terminal-area {
   min-height: 84px;
 }
+
+/* Pill collection input */
+.ui-pill-input-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  background: #070d14;
+  padding: 6px 8px;
+}
+
+.ui-pill-input-field:focus-within {
+  border-color: rgba(16, 255, 80, 0.45);
+}
+
+.ui-pill-input-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.ui-pill-input-entry {
+  flex: 1 1 120px;
+  min-width: 100px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #f3f4f6;
+  font-size: 14px;
+  line-height: 1.4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.ui-pill-input-entry::placeholder {
+  color: rgba(148, 163, 184, 0.7);
+}

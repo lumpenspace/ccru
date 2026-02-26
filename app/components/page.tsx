@@ -15,6 +15,7 @@ import { CyberInput } from './ui/CyberInput'
 import { CyberPageHeader } from './ui/CyberPageHeader'
 import { CyberPanel } from './ui/CyberPanel'
 import { CyberPopover } from './ui/CyberPopover'
+import { Pill } from './ui/Pill'
 import { CyberRadio } from './ui/CyberRadio'
 import { CyberStackGroup } from './ui/CyberStackGroup'
 import { CyberTextArea } from './ui/CyberTextArea'
@@ -32,13 +33,13 @@ const CYPHER_CODE = `<CypherHoverText cyphers={CCRU_CIPHERS} markdown={${JSON.st
 const BUTTONS_CODE = `(
   <>
     <CyberButtonGroup>
-      <CyberButton active>Alpha</CyberButton>
-      <CyberButton>Beta</CyberButton>
+      <CyberButton active shortcut="g">Alpha</CyberButton>
+      <CyberButton shortcut="h">Beta</CyberButton>
     </CyberButtonGroup>
     <CyberButtonGroup>
-      <CyberButton>TC Off</CyberButton>
-      <CyberButton active>TC Assist</CyberButton>
-      <CyberButton>TC Full</CyberButton>
+      <CyberButton shortcut="j">TC Off</CyberButton>
+      <CyberButton active shortcut="k">TC Assist</CyberButton>
+      <CyberButton shortcut="l">TC Full</CyberButton>
     </CyberButtonGroup>
   </>
 )`
@@ -68,7 +69,15 @@ const INPUT_CODE = `(
   <>
     <CyberInput label="Phrase" value="CCRU numogram" onChange={() => {}} placeholder="Type phrase..." />
     <CyberTextArea label="Notes (markdown)" value={${JSON.stringify(SAMPLE_MD)}} onChange={() => {}} rows={5} />
+    <CyberTextArea label="Interesting values" value="33, 93, 119" onChange={() => {}} pillCollection rows={3} />
   </>
+)`
+const PILL_CODE = `(
+  <div className="flex flex-wrap gap-2">
+    <Pill accent="#facc15">AQ 311</Pill>
+    <Pill accent="#22d3ee">Synx 2201</Pill>
+    <Pill accent="#fb7185" onClose={() => {}}>666</Pill>
+  </div>
 )`
 const FIGURE_CODE = `(
   <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
@@ -94,7 +103,7 @@ const CONTAINERS_CODE = `(
           title="Panel Primitive"
           position={{ x: 10, y: 10 }}
           width={260}
-          collapsible
+          collapseDirection="side"
           defaultOpen
           draggable={false}
           onDragStart={() => {}}
@@ -132,6 +141,7 @@ const BUTTONS_PROPS = `type CyberButtonProps = {
   active?: boolean
   indicator?: boolean
   disabled?: boolean
+  shortcut?: string
   size?: 'md' | 'sm'
   onMouseEnter?: () => void
   onMouseLeave?: () => void
@@ -187,6 +197,16 @@ type CyberTextAreaProps = {
   onChange: (next: string) => void
   rows?: number
   placeholder?: string
+  pillCollection?: boolean
+}`
+
+const PILL_PROPS = `type PillProps = {
+  children: React.ReactNode
+  accent?: string
+  onClose?: () => void
+  closeLabel?: string
+  className?: string
+  title?: string
 }`
 
 const FIGURE_PROPS = `type FigureProps = {
@@ -220,7 +240,6 @@ interface CyberPanelProps {
   width?: number | string
   open?: boolean
   onToggle?: () => void
-  collapsible?: boolean
   defaultOpen?: boolean
   onActivate?: (panelId: string) => void
   onHeightChange?: (panelId: string, height: number) => void
@@ -230,6 +249,7 @@ interface CyberPanelProps {
   maxBodyHeight?: number
   scrollable?: boolean
   showToggle?: boolean
+  collapseDirection?: 'none' | 'vertical' | 'side'
   headerRight?: React.ReactNode
   positionMode?: 'fixed' | 'absolute' | 'relative'
   children: React.ReactNode
@@ -313,6 +333,7 @@ export default function ComponentsShowcasePage() {
   const [radioCode, setRadioCode] = useState(RADIO_CHECKBOX_CODE)
   const [popoverCode, setPopoverCode] = useState(POPOVER_CODE)
   const [inputCode, setInputCode] = useState(INPUT_CODE)
+  const [pillCode, setPillCode] = useState(PILL_CODE)
   const [figureCode, setFigureCode] = useState(FIGURE_CODE)
   const [containersCode, setContainersCode] = useState(CONTAINERS_CODE)
 
@@ -388,6 +409,18 @@ export default function ComponentsShowcasePage() {
             onCodeChange={setInputCode}
             scope={{ CyberInput, CyberTextArea }}
             propsTypes={INPUT_PROPS}
+          />
+        </CyberCardContainer>
+
+        <CyberCardContainer title="Pill" collapsible>
+          <SplitShowcaseCard
+            splitVertical={splitVertical}
+            code={pillCode}
+            onCodeChange={setPillCode}
+            scope={{ Pill }}
+            propsTypes={PILL_PROPS}
+            heightClassName="h-[360px]"
+            codeHeightClassName="h-[170px]"
           />
         </CyberCardContainer>
 

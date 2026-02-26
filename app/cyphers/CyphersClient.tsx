@@ -12,7 +12,7 @@ import { CyberInput } from '../components/ui/CyberInput'
 import { CyberPageHeader } from '../components/ui/CyberPageHeader'
 import { CyberPanel } from '../components/ui/CyberPanel'
 import { CyberPopover } from '../components/ui/CyberPopover'
-import { cyberColorAt } from '../lib/cyberColors'
+import { Pill } from '../components/ui/Pill'
 
 type DocsTab = 'react' | 'chrome'
 
@@ -41,9 +41,18 @@ const CHROME_PLUGIN_CONTENT_SNIPPET = `// content.js
 // Reuse CCRU ciphers from app/cyphers/ccruCiphers.ts
 // and show sentence/paragraph gematria hover values in-page.`
 
-const CIPHER_COLOR_BY_ID = Object.fromEntries(
-  CCRU_CIPHERS.map((cipher, index) => [cipher.id, cyberColorAt(index)])
-) as Record<string, string>
+const CIPHER_COLOR_BY_ID: Record<string, string> = {
+  'alphanumeric-qabbala': '#ffe066',
+  synx: '#46e0ff',
+  'numeric-qwerty': '#00d4aa',
+  qwerty: '#00f5ff',
+  'alphanumeric-satanic': '#ff4d4d',
+  'alphanumeric-primes': '#ffb84d',
+  'alphanumeric-squares': '#7dd3ff',
+  'alphanumeric-trigonal': '#ffd166',
+  'archaic-alphanumeric': '#10ff50',
+  'numeric-qwerty-primes': '#8affdb',
+}
 
 function cipherColor(id: string): string {
   return CIPHER_COLOR_BY_ID[id] || '#10ff50'
@@ -105,7 +114,7 @@ export default function CyphersClient() {
         word,
         values: enabledCiphers.map(cipher => ({
           id: cipher.id,
-          shortName: cipher.shortName,
+          symbol: cipher.icon,
           value: calcGematria(word, cipher),
           accent: cipherColor(cipher.id),
         })),
@@ -154,18 +163,18 @@ export default function CyphersClient() {
           onDragStart={() => {}}
           positionMode="fixed"
           zIndex={60}
-          collapsible
           defaultOpen
+          collapseDirection="side"
           maxBodyHeight={900}
-          headerRight={
-            <CyberButtonGroup className="items-center">
-              <CyberButton size="sm" onClick={() => setEnabled(new Set(CCRU_CIPHERS.map(cipher => cipher.id)))}>All</CyberButton>
-              <CyberButton size="sm" onClick={() => setEnabled(new Set())}>None</CyberButton>
-            </CyberButtonGroup>
-          }
         >
           <div className="px-3 py-3">
-            <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4 xl:grid-cols-5">
+            <div className="mb-2 flex justify-end">
+              <CyberButtonGroup className="items-center">
+                <CyberButton size="sm" onClick={() => setEnabled(new Set(CCRU_CIPHERS.map(cipher => cipher.id)))}>All</CyberButton>
+                <CyberButton size="sm" onClick={() => setEnabled(new Set())}>None</CyberButton>
+              </CyberButtonGroup>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
               {CCRU_CIPHERS.map(cipher => {
                 const checked = enabled.has(cipher.id)
                 const accent = cipherColor(cipher.id)
@@ -175,11 +184,11 @@ export default function CyphersClient() {
                     trigger={
                       <CyberCheckbox
                         checked={checked}
-                        label={cipher.shortName}
+                        label={cipher.name}
                         icon={cipher.icon}
                         accent={accent}
                         onChange={() => toggleCipher(cipher.id)}
-                        className="w-full justify-start gap-1.5 px-2 py-1 text-[10px]"
+                        className="w-full justify-start gap-1.5 px-2 py-1 text-[9px]"
                       />
                     }
                     content={
@@ -228,18 +237,14 @@ export default function CyphersClient() {
                       {line.map(row => {
                         const accent = cipherColor(row.cipher.id)
                         return (
-                          <span
+                          <Pill
                             key={row.cipher.id}
-                            className="px-1 py-[1px] text-center text-[10px] leading-none"
-                            style={{
-                              color: accent,
-                              border: `1px solid ${accent}88`,
-                              background: `${accent}1a`,
-                            }}
+                            accent={accent}
+                            className="w-full justify-center text-center text-[10px]"
                             title={`${row.cipher.name}: ${row.value}`}
                           >
-                            {row.cipher.shortName}: {row.value}
-                          </span>
+                            {row.cipher.icon} {row.value}
+                          </Pill>
                         )
                       })}
                     </div>
@@ -262,18 +267,14 @@ export default function CyphersClient() {
                             style={{ gridTemplateColumns: `repeat(${Math.max(1, line.length)}, minmax(0, 1fr))` }}
                           >
                             {line.map(item => (
-                              <span
+                              <Pill
                                 key={`${entry.word}-${item.id}`}
-                                className="px-1 py-[1px] text-center text-[8px] leading-none"
-                                style={{
-                                  color: item.accent,
-                                  border: `1px solid ${item.accent}88`,
-                                  background: `${item.accent}1a`,
-                                }}
-                                title={`${item.shortName}: ${item.value}`}
+                                accent={item.accent}
+                                className="w-full justify-center text-center text-[8px]"
+                                title={`${item.symbol}: ${item.value}`}
                               >
-                                {item.value}
-                              </span>
+                                {item.symbol} {item.value}
+                              </Pill>
                             ))}
                           </div>
                         ))}
@@ -297,6 +298,7 @@ export default function CyphersClient() {
             positionMode="relative"
             open={docsOpen}
             onToggle={() => setDocsOpen(v => !v)}
+            collapseDirection="vertical"
             maxBodyHeight={1200}
           >
             <div className="space-y-3 px-3 py-3">

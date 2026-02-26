@@ -5,3 +5,7 @@
 #popup-root .gm-cyber-panel-body {
   padding-top: 9px;
 }
+
+#popup-root .gm-cyber-panel-collapsible.gm-cyber-panel-collapsed .gm-cyber-panel-body {
+  padding-top: 0;
+}

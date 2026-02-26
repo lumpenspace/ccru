@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { CyberPanelHeader } from './CyberPanelHeader'
 
 type PositionMode = 'fixed' | 'absolute' | 'relative'
+type CollapseDirection = 'none' | 'vertical' | 'side'
 
 export interface CyberPanelProps {
   id: string
@@ -12,7 +13,6 @@ export interface CyberPanelProps {
   width?: number | string
   open?: boolean
   onToggle?: () => void
-  collapsible?: boolean
   defaultOpen?: boolean
   onActivate?: (panelId: string) => void
   onHeightChange?: (panelId: string, height: number) => void
@@ -22,6 +22,7 @@ export interface CyberPanelProps {
   maxBodyHeight?: number
   scrollable?: boolean
   showToggle?: boolean
+  collapseDirection?: CollapseDirection
   headerRight?: React.ReactNode
   positionMode?: PositionMode
   children: React.ReactNode
@@ -34,7 +35,6 @@ export function CyberPanel({
   width = 180,
   open,
   onToggle,
-  collapsible = false,
   defaultOpen,
   onActivate,
   onHeightChange,
@@ -44,33 +44,40 @@ export function CyberPanel({
   maxBodyHeight,
   scrollable = false,
   showToggle = true,
+  collapseDirection = 'none',
   headerRight,
   positionMode = 'fixed',
   children,
 }: CyberPanelProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [internalOpen, setInternalOpen] = useState<boolean>(() => defaultOpen ?? open ?? true)
+  const isCollapsible = collapseDirection !== 'none'
   const isControlled = typeof onToggle === 'function' && typeof open === 'boolean'
-  const isOpen = isControlled
-    ? open
-    : collapsible
-      ? internalOpen
-      : open ?? true
-  const canToggle = showToggle && (typeof onToggle === 'function' || collapsible)
+  const isOpen = isCollapsible
+    ? isControlled
+      ? open
+      : internalOpen
+    : true
+  const canToggle = isCollapsible
+  const showPanelToggle = showToggle && canToggle
+  const showHeader = collapseDirection !== 'side'
+  const isSideToggle = showPanelToggle && collapseDirection === 'side'
+  const isSideClosed = isSideToggle && !isOpen
 
   const handleToggle = () => {
+    if (!isCollapsible) return
     if (onToggle) {
       onToggle()
       return
     }
-    if (collapsible) setInternalOpen(prev => !prev)
+    setInternalOpen(prev => !prev)
   }
 
   useEffect(() => {
-    if (isControlled) return
+    if (!isCollapsible || isControlled) return
     if (typeof open !== 'boolean') return
     setInternalOpen(open)
-  }, [isControlled, open])
+  }, [isCollapsible, isControlled, open])
 
   useEffect(() => {
     if (!onHeightChange) return
@@ -92,8 +99,9 @@ export function CyberPanel({
         position: positionMode,
         left: positionMode === 'relative' ? undefined : position.x,
         top: positionMode === 'relative' ? undefined : position.y,
-        width,
+        width: isSideClosed ? 36 : width,
         zIndex,
+        transition: isSideToggle ? 'width 0.2s ease' : undefined,
       }}
       onMouseDownCapture={() => onActivate?.(id)}
     >
@@ -104,7 +112,9 @@ export function CyberPanel({
           clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
           background: scrollable
             ? undefined
-            : 'linear-gradient(180deg, rgba(16,255,80,0.02) 0%, rgba(8,8,15,0.95) 40%)',
+            : isSideClosed
+              ? 'transparent'
+              : 'linear-gradient(180deg, rgba(16,255,80,0.02) 0%, rgba(8,8,15,0.95) 40%)',
           ...(scrollable
             ? {
                 backgroundColor: 'rgba(8,8,15,0.95)',
@@ -118,66 +128,107 @@ export function CyberPanel({
         <div className="absolute left-0 top-0 h-[1px] w-3 bg-[#10ff50]/40" />
         <div className="absolute left-0 top-0 h-3 w-[1px] bg-[#10ff50]/40" />
 
-        <CyberPanelHeader
-          title={title}
-          className="group px-3 py-2"
-          titleClassName="text-[8px] uppercase tracking-[0.3em]"
-          style={{
-            color: '#10ff50',
-            textShadow: '0 0 6px rgba(16,255,80,0.3)',
-            cursor: draggable ? 'grab' : 'default',
-          }}
-          onMouseDown={e => {
-            if (draggable) onDragStart(id, e)
-          }}
-          leftSlot={draggable ? (
-            <div className="mr-1 flex flex-col gap-[2px] opacity-0 transition-opacity group-hover:opacity-40">
-              <div className="h-[1px] w-3 bg-[#10ff50]" />
-              <div className="h-[1px] w-3 bg-[#10ff50]" />
-              <div className="h-[1px] w-3 bg-[#10ff50]" />
-            </div>
-          ) : undefined}
-          rightSlot={(headerRight || canToggle) ? (
-            <div className="flex items-center gap-1" onMouseDown={e => e.stopPropagation()}>
-              {headerRight}
-              {canToggle && (
+        {showHeader && (
+          <CyberPanelHeader
+            title={title}
+            className="group px-3 py-2"
+            titleClassName="text-[8px] uppercase tracking-[0.3em]"
+            style={{
+              color: '#10ff50',
+              textShadow: '0 0 6px rgba(16,255,80,0.3)',
+              cursor: draggable ? 'grab' : 'default',
+            }}
+            onMouseDown={e => {
+              if (draggable) onDragStart(id, e)
+            }}
+            leftSlot={draggable ? (
+              <div className="mr-1 flex flex-col gap-[2px] opacity-0 transition-opacity group-hover:opacity-40">
+                <div className="h-[1px] w-3 bg-[#10ff50]" />
+                <div className="h-[1px] w-3 bg-[#10ff50]" />
+                <div className="h-[1px] w-3 bg-[#10ff50]" />
+              </div>
+            ) : undefined}
+            rightSlot={(headerRight || (showPanelToggle && collapseDirection !== 'side')) ? (
+              <div className="flex items-center gap-1" onMouseDown={e => e.stopPropagation()}>
+                {headerRight}
+                {showPanelToggle && collapseDirection !== 'side' && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      handleToggle()
+                    }}
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                      style={{
+                        transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                        transition: 'transform 0.2s ease',
+                      }}
+                    >
+                      <path
+                        d="M2 3.5L5 6.5L8 3.5"
+                        stroke="#10ff50"
+                        strokeWidth="1"
+                        strokeLinecap="round"
+                        opacity="0.5"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ) : undefined}
+          />
+        )}
+
+        {showPanelToggle ? (
+          collapseDirection === 'side' ? (
+            <div className="flex items-stretch gap-1 px-2 pb-2">
+              <div
+                className="min-w-0 overflow-hidden transition-all duration-200"
+                style={{
+                  flex: isOpen ? '1 1 auto' : '0 0 auto',
+                  maxWidth: isOpen ? 1600 : 0,
+                  maxHeight: maxBodyHeight || 500,
+                  opacity: isOpen ? 1 : 0,
+                  pointerEvents: isOpen ? 'auto' : 'none',
+                }}
+              >
+                {children}
+              </div>
+              {showPanelToggle && (
                 <button
+                  type="button"
+                  onMouseDown={e => e.stopPropagation()}
                   onClick={e => {
                     e.stopPropagation()
                     handleToggle()
                   }}
+                  aria-label={isOpen ? `Collapse ${title}` : `Expand ${title}`}
+                  className="inline-flex min-h-[96px] w-6 flex-shrink-0 items-center justify-center border border-[#10ff50]/22 bg-[#050a12] text-[#10ff50]/70 transition-all hover:bg-[#0a1220] hover:text-[#10ff50]"
+                  style={{
+                    clipPath: 'polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)',
+                  }}
                 >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    style={{
-                      transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                      transition: 'transform 0.2s ease',
-                    }}
+                  <span
+                    className="text-[8px] uppercase tracking-[0.12em]"
+                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
                   >
-                    <path
-                      d="M2 3.5L5 6.5L8 3.5"
-                      stroke="#10ff50"
-                      strokeWidth="1"
-                      strokeLinecap="round"
-                      opacity="0.5"
-                    />
-                  </svg>
+                    {title} {isOpen ? '\u25C2' : '\u25B8'}
+                  </span>
                 </button>
               )}
             </div>
-          ) : undefined}
-        />
-
-        {showToggle ? (
-          <div
-            className="overflow-hidden transition-all duration-200"
-            style={{ maxHeight: isOpen ? maxBodyHeight || 500 : 0, opacity: isOpen ? 1 : 0 }}
-          >
-            {children}
-          </div>
+          ) : (
+            <div
+              className="overflow-hidden transition-all duration-200"
+              style={{ maxHeight: isOpen ? maxBodyHeight || 500 : 0, opacity: isOpen ? 1 : 0 }}
+            >
+              {children}
+            </div>
+          )
         ) : (
           children
         )}

@@ -7,13 +7,16 @@
   const TWITTER_HOST_PATTERN = /(^|\.)twitter\.com$|(^|\.)x\.com$/i;
   const SAVED_PATH_PATTERN = /^\/gematria\/saved\/?$/i;
 
-  const TWEET_CARD_CLASS = 'gm-tweet-hover-card';
+  const TWEET_CARD_CLASS = 'gm-tweet-name-widget';
+  const TWEET_OVERLAY_CLASS = 'gm-tweet-hover-overlay';
   const COMPOSER_WIDGET_CLASS = 'gm-composer-widget';
   const SAVED_ROOT_ID = 'gematria-saved-root';
 
   let settings = sanitizeSettings(defaultSettings);
   let twitterObserver = null;
   let refreshQueued = false;
+  let selectionRefreshHandle = 0;
+  let lastSelectionSignature = '';
 
   function sanitizeSettings(raw) {
     const next = raw || {};
@@ -26,6 +29,7 @@
     return {
       enabledCypherIds: enabledCypherIds.length > 0 ? enabledCypherIds : defaultSettings.enabledCypherIds,
       interestingValues,
+      autoShowSelectionOnSelect: next.autoShowSelectionOnSelect === true,
     };
   }
 
@@ -76,6 +80,10 @@
     return `hsl(${hue} ${saturation}% ${lightness}%)`;
   }
 
+  function cypherGlyph(row) {
+    return `${row.icon || row.shortName || row.name || row.id || '?'}`;
+  }
+
   function settingsSignature() {
     return `${settings.enabledCypherIds.join(',')}|${settings.interestingValues.join(',')}`;
   }
@@ -89,7 +97,23 @@
       .map(row => {
         const isHit = interesting.has(row.value);
         const hitClass = isHit ? ' gm-cyber-badge-hit' : '';
-        return `<span class="gm-cyber-badge${hitClass}" style="--gm-accent:${cypherColor(row)}">${escapeHtml(row.shortName)}: ${row.value}</span>`;
+        return `<span class="gm-cyber-badge${hitClass}" style="--gm-accent:${cypherColor(row)}">${escapeHtml(cypherGlyph(row))}: ${row.value}</span>`;
+      })
+      .join('');
+  }
+
+  function renderValuesIndicators(values, interesting) {
+    if (values.length === 0) {
+      return '<span class="gm-cyber-muted">-</span>';
+    }
+
+    return values
+      .map(row => {
+        const isHit = interesting.has(row.value);
+        const hitClass = isHit ? ' gm-cyber-indicator-hit' : '';
+        const glyph = cypherGlyph(row);
+        const tooltip = `${escapeHtml(glyph)}: ${row.value}`;
+        return `<span class="gm-cyber-indicator${hitClass}" style="--gm-accent:${cypherColor(row)}" title="${tooltip}">${escapeHtml(glyph)} ${row.value}</span>`;
       })
       .join('');
   }
@@ -112,47 +136,27 @@
     return utils.sanitizeText(node ? node.innerText || node.textContent || '' : '');
   }
 
-  function ensureTweetCard(article) {
-    let card = article.querySelector(`.${TWEET_CARD_CLASS}`);
-    if (card) return card;
+  function findTweetCardHost(article) {
+    return { host: article, variant: 'right' };
+  }
 
-    if (ui && typeof ui.createPanel === 'function') {
-      const panel = ui.createPanel({ title: 'Gematria' });
-      panel.root.classList.add(TWEET_CARD_CLASS);
+  function clearTweetCard(article) {
+    const card = article.querySelector(`.${TWEET_CARD_CLASS}`);
+    if (card) card.remove();
+    const overlay = article.querySelector(`.${TWEET_OVERLAY_CLASS}`);
+    if (overlay) overlay.remove();
+    article.classList.remove('gm-tweet-host');
+    delete article.dataset.gematriaSignature;
+  }
 
-      const valuesNode = document.createElement('div');
-      valuesNode.className = 'gm-values';
+  function bindTweetOverlaySaveButton(overlay, article) {
+    if (!(overlay instanceof HTMLElement)) return;
+    if (overlay.dataset.gematriaSaveBound === '1') return;
 
-      const actions = document.createElement('div');
-      actions.className = 'gm-cyber-panel-actions';
+    const saveButton = overlay.querySelector('.gm-btn-save');
+    if (!(saveButton instanceof HTMLElement)) return;
 
-      const saveButton = ui.createButton({ label: 'Save' });
-      saveButton.classList.add('gm-btn-save');
-
-      actions.appendChild(saveButton);
-      panel.body.appendChild(valuesNode);
-      panel.body.appendChild(actions);
-      card = panel.root;
-    } else {
-      card = document.createElement('div');
-      card.className = `${TWEET_CARD_CLASS} gm-cyber-panel`;
-      card.innerHTML = [
-        '<div class="gm-cyber-panel-head"><div class="gm-cyber-panel-title">Gematria</div></div>',
-        '<div class="gm-cyber-panel-body">',
-        '<div class="gm-values"></div>',
-        '<div class="gm-cyber-panel-actions">',
-        '<button type="button" class="gm-cyber-button gm-btn-save">Save</button>',
-        '</div>',
-        '</div>',
-      ].join('');
-    }
-
-    const saveButton = card.querySelector('.gm-btn-save');
-    if (!(saveButton instanceof HTMLElement)) {
-      article.classList.add('gm-tweet-host');
-      article.appendChild(card);
-      return card;
-    }
+    overlay.dataset.gematriaSaveBound = '1';
     saveButton.addEventListener('click', async event => {
       event.preventDefault();
       event.stopPropagation();
@@ -174,27 +178,112 @@
         saveButton.textContent = 'Save';
       }, 900);
     });
+  }
 
+  function ensureTweetCard(article) {
+    let card = article.querySelector(`.${TWEET_CARD_CLASS}`);
+    let overlay = article.querySelector(`.${TWEET_OVERLAY_CLASS}`);
+    const target = findTweetCardHost(article);
+    if (!target || !(target.host instanceof HTMLElement)) return null;
+
+    if (card) {
+      card.classList.toggle('gm-tweet-right-widget', target.variant === 'right');
+      if (card.parentElement !== target.host) {
+        if (target.variant === 'right') {
+          target.host.appendChild(card);
+        } else {
+          target.host.appendChild(card);
+        }
+      }
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = `${TWEET_OVERLAY_CLASS} gm-cyber-panel`;
+        overlay.innerHTML = [
+          '<div class="gm-cyber-panel-body">',
+          '<div class="gm-values"></div>',
+          '<div class="gm-cyber-panel-actions">',
+          '<button type="button" class="gm-cyber-button gm-btn-save">Save</button>',
+          '</div>',
+          '</div>',
+        ].join('');
+        article.appendChild(overlay);
+      }
+      bindTweetOverlaySaveButton(overlay, article);
+      article.classList.add('gm-tweet-host');
+      return { card, overlay };
+    }
+
+    card = document.createElement('div');
+    card.className = TWEET_CARD_CLASS;
+    card.classList.toggle('gm-tweet-right-widget', target.variant === 'right');
+    card.innerHTML = [
+      '<span class="gm-tweet-inline-values"></span>',
+    ].join('');
+
+    overlay = document.createElement('div');
+    overlay.className = `${TWEET_OVERLAY_CLASS} gm-cyber-panel`;
+    overlay.innerHTML = [
+      '<div class="gm-cyber-panel-body">',
+      '<div class="gm-values"></div>',
+      '<div class="gm-cyber-panel-actions">',
+      '<button type="button" class="gm-cyber-button gm-btn-save">Save</button>',
+      '</div>',
+      '</div>',
+    ].join('');
+    article.appendChild(overlay);
+
+    bindTweetOverlaySaveButton(overlay, article);
+    if (overlay.dataset.gematriaSaveBound !== '1') return null;
+
+    if (target.variant === 'right') {
+      target.host.appendChild(card);
+    } else {
+      target.host.appendChild(card);
+    }
     article.classList.add('gm-tweet-host');
-    article.appendChild(card);
-    return card;
+    return { card, overlay };
   }
 
   function decorateTweet(article) {
     const phrase = getTweetText(article);
-    if (!phrase) return;
+    if (!phrase) {
+      clearTweetCard(article);
+      article.classList.remove('gm-interesting-tweet');
+      return;
+    }
 
     const signature = `${phrase}|${settingsSignature()}`;
-    if (article.dataset.gematriaSignature === signature) return;
-    article.dataset.gematriaSignature = signature;
-
     const values = utils.calcValuesForText(phrase, settings);
     const interesting = utils.interestingSetFromSettings(settings);
     const matchesInteresting = values.some(row => interesting.has(row.value));
 
-    const card = ensureTweetCard(article);
-    const valuesNode = card.querySelector('.gm-values');
-    valuesNode.innerHTML = renderValuesBadges(values, interesting);
+    const widgets = ensureTweetCard(article);
+    if (!widgets || !widgets.card || !widgets.overlay) {
+      clearTweetCard(article);
+      return;
+    }
+    const { card, overlay } = widgets;
+
+    if (article.dataset.gematriaSignature === signature && card.dataset.gematriaSignature === signature) {
+      article.classList.toggle('gm-interesting-tweet', matchesInteresting);
+      return;
+    }
+
+    article.dataset.gematriaSignature = signature;
+    card.dataset.gematriaSignature = signature;
+
+    const interestingValues = values.filter(row => interesting.has(row.value));
+
+    const inlineValuesNode = card.querySelector('.gm-tweet-inline-values');
+    if (inlineValuesNode) {
+      inlineValuesNode.innerHTML = renderValuesIndicators(interestingValues, interesting);
+    }
+    card.classList.toggle('gm-hidden', interestingValues.length === 0);
+
+    const valuesNode = overlay.querySelector('.gm-values');
+    if (valuesNode) {
+      valuesNode.innerHTML = renderValuesBadges(values, interesting);
+    }
 
     article.classList.toggle('gm-interesting-tweet', matchesInteresting);
   }
@@ -254,7 +343,7 @@
     }
 
     widget.innerHTML = values
-      .map(row => `<span class="gm-cyber-inline-value" style="--gm-accent:${cypherColor(row)}">${escapeHtml(row.shortName)} ${row.value}</span>`)
+      .map(row => `<span class="gm-cyber-inline-value" style="--gm-accent:${cypherColor(row)}">${escapeHtml(cypherGlyph(row))} ${row.value}</span>`)
       .join('');
   }
 
@@ -298,12 +387,107 @@
     twitterObserver.observe(document.body, { childList: true, subtree: true });
   }
 
-  function showSelectionPanel(text, pageUrl) {
+  function notifyBackgroundSelectionChanged(payload) {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'GEMATRIA_SELECTION_CHANGED',
+        phrase: payload.phrase,
+        values: payload.values,
+        pageUrl: payload.pageUrl,
+      });
+    } catch {}
+  }
+
+  function notifyBackgroundSelectionCleared() {
+    try {
+      chrome.runtime.sendMessage({ type: 'GEMATRIA_SELECTION_CLEARED' });
+    } catch {}
+  }
+
+  function getTextInputSelectionText() {
+    const active = document.activeElement;
+    if (active instanceof HTMLTextAreaElement) {
+      const start = Number(active.selectionStart);
+      const end = Number(active.selectionEnd);
+      if (Number.isInteger(start) && Number.isInteger(end) && end > start) {
+        return `${active.value || ''}`.slice(start, end);
+      }
+      return '';
+    }
+
+    if (active instanceof HTMLInputElement) {
+      const selectableType = /^(text|search|url|tel|password|email)$/i;
+      if (!selectableType.test(active.type || 'text')) return '';
+      const start = Number(active.selectionStart);
+      const end = Number(active.selectionEnd);
+      if (Number.isInteger(start) && Number.isInteger(end) && end > start) {
+        return `${active.value || ''}`.slice(start, end);
+      }
+    }
+
+    return '';
+  }
+
+  function getCurrentSelectionPhrase() {
+    const selectionText = globalThis.getSelection ? `${globalThis.getSelection()?.toString() || ''}` : '';
+    const normalized = utils.sanitizeText(selectionText);
+    if (normalized) return normalized;
+    return utils.sanitizeText(getTextInputSelectionText());
+  }
+
+  function getCurrentSelectionPayload() {
+    const phrase = getCurrentSelectionPhrase();
+    if (!phrase) return null;
+    return {
+      phrase,
+      values: utils.calcValuesForText(phrase, settings),
+      pageUrl: location.href,
+    };
+  }
+
+  function removeAutoSelectionPanel() {
+    const panel = document.getElementById('gm-selection-panel');
+    if (panel && panel.dataset.gematriaAuto === '1') panel.remove();
+  }
+
+  function syncSelectionState({ allowAutoPanel = false, force = false } = {}) {
+    const payload = getCurrentSelectionPayload();
+    const signature = payload ? `${payload.phrase}|${settingsSignature()}` : '';
+    if (!force && signature === lastSelectionSignature) return;
+    lastSelectionSignature = signature;
+
+    if (!payload) {
+      notifyBackgroundSelectionCleared();
+      removeAutoSelectionPanel();
+      return;
+    }
+
+    notifyBackgroundSelectionChanged(payload);
+
+    if (allowAutoPanel && settings.autoShowSelectionOnSelect) {
+      showSelectionPanel(payload.phrase, payload.pageUrl, { origin: 'auto', values: payload.values });
+    } else {
+      removeAutoSelectionPanel();
+    }
+  }
+
+  function scheduleSelectionSync(options = {}) {
+    if (selectionRefreshHandle) {
+      clearTimeout(selectionRefreshHandle);
+    }
+    selectionRefreshHandle = setTimeout(() => {
+      selectionRefreshHandle = 0;
+      syncSelectionState(options);
+    }, 90);
+  }
+
+  function showSelectionPanel(text, pageUrl, options = {}) {
+    const origin = options.origin || 'manual';
     const phrase = utils.sanitizeText(text);
     if (!phrase) return;
 
     const interesting = utils.interestingSetFromSettings(settings);
-    const values = utils.calcValuesForText(phrase, settings);
+    const values = Array.isArray(options.values) ? options.values : utils.calcValuesForText(phrase, settings);
 
     const existing = document.getElementById('gm-selection-panel');
     if (existing) existing.remove();
@@ -313,6 +497,7 @@
       : document.createElement('div');
     panel.id = 'gm-selection-panel';
     panel.className = 'gm-selection-panel gm-cyber-panel';
+    if (origin === 'auto') panel.dataset.gematriaAuto = '1';
 
     if (ui && typeof ui.createPanel === 'function' && panel.querySelector('.gm-cyber-panel-body')) {
       const body = panel.querySelector('.gm-cyber-panel-body');
@@ -393,7 +578,7 @@
       ? entry.values
           .map(row => {
             const color = cypherColor(row);
-            return `<span class="gm-cyber-inline-value" style="--gm-accent:${color}">${escapeHtml(row.shortName || row.id)} ${row.value}</span>`;
+            return `<span class="gm-cyber-inline-value" style="--gm-accent:${color}">${escapeHtml(cypherGlyph(row))} ${row.value}</span>`;
           })
           .join('')
       : '<span class="gm-cyber-muted">No values</span>';
@@ -475,11 +660,38 @@
   }
 
   function bindRuntimeMessages() {
-    chrome.runtime.onMessage.addListener(message => {
-      if (!message || message.type !== 'GEMATRIA_SELECTION_REQUEST') return;
-      if (TWITTER_HOST_PATTERN.test(location.hostname)) return;
-      showSelectionPanel(message.text || '', message.pageUrl || location.href);
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (!message || !message.type) return;
+
+      if (message.type === 'GEMATRIA_SELECTION_REQUEST') {
+        showSelectionPanel(message.text || '', message.pageUrl || location.href, { origin: 'manual' });
+        return;
+      }
+
+      if (message.type === 'GEMATRIA_SELECTION_QUERY') {
+        const payload = getCurrentSelectionPayload();
+        sendResponse({
+          ok: true,
+          phrase: payload ? payload.phrase : '',
+          values: payload ? payload.values : [],
+          pageUrl: location.href,
+        });
+      }
     });
+  }
+
+  function bindSelectionTracking() {
+    if (document.documentElement.dataset.gematriaSelectionBound === '1') return;
+    document.documentElement.dataset.gematriaSelectionBound = '1';
+
+    const onSelectionEvent = () => scheduleSelectionSync({ allowAutoPanel: true });
+
+    document.addEventListener('selectionchange', onSelectionEvent, true);
+    document.addEventListener('mouseup', onSelectionEvent, true);
+    document.addEventListener('keyup', onSelectionEvent, true);
+    window.addEventListener('blur', () => scheduleSelectionSync({ allowAutoPanel: false }), true);
+
+    scheduleSelectionSync({ allowAutoPanel: false, force: true });
   }
 
   function bindStorageWatch() {
@@ -488,8 +700,11 @@
 
       const nextSettingsChange = changes[storageKeys.settings];
       if (nextSettingsChange) {
+        const prevAuto = settings.autoShowSelectionOnSelect === true;
         settings = sanitizeSettings(nextSettingsChange.newValue || defaultSettings);
+        const autoEnabledNow = !prevAuto && settings.autoShowSelectionOnSelect === true;
         if (TWITTER_HOST_PATTERN.test(location.hostname)) queueTwitterRefresh();
+        scheduleSelectionSync({ allowAutoPanel: autoEnabledNow, force: true });
       }
 
       if (changes[storageKeys.savedEntries] && SAVED_PATH_PATTERN.test(location.pathname)) {
@@ -503,6 +718,7 @@
 
     bindRuntimeMessages();
     bindStorageWatch();
+    bindSelectionTracking();
 
     if (TWITTER_HOST_PATTERN.test(location.hostname)) {
       initTwitter();

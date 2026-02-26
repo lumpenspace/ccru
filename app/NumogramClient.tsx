@@ -282,6 +282,9 @@ export default function NumogramPage() {
   const historyCurrentRef = useRef<HistorySnapshot | null>(null)
   const historyApplyingRef = useRef(false)
   const layoutGlitchTimerRef = useRef<number | null>(null)
+  const currentOrientationRef = useRef<Record<string, 1 | -1>>({})
+  const planetaryDateInputRef = useRef<HTMLInputElement | null>(null)
+  const dateFieldWasVisibleRef = useRef(false)
 
   const zonesForRegion = useCallback((region: Region): number[] => {
     const zones: number[] = []
@@ -918,18 +921,8 @@ export default function NumogramPage() {
         return
       }
 
-      const layoutByKey: Partial<Record<string, Layout>> = {
-        a: 'original',
-        s: 'labyrinth',
-        d: 'ladder',
-        f: 'planetary',
-      }
-      const nextLayout = layoutByKey[key]
-      if (nextLayout) {
-        e.preventDefault()
-        handleSwitchLayout(nextLayout)
-        return
-      }
+      const dateFieldVisible = layout === 'planetary' && !!planetDate
+      if (dateFieldVisible && /^[0-9]$/.test(key)) return
 
       if (!/^[0-9]$/.test(key)) return
       const zone = Number(key)
@@ -941,7 +934,20 @@ export default function NumogramPage() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleSwitchLayout, onSelectGate, onUndo, onRedo, shortcutsOpen])
+  }, [layout, planetDate, onSelectGate, onUndo, onRedo, shortcutsOpen])
+
+  useEffect(() => {
+    const dateFieldVisible = layout === 'planetary' && !!planetDate
+    if (dateFieldVisible && !dateFieldWasVisibleRef.current) {
+      requestAnimationFrame(() => {
+        const input = planetaryDateInputRef.current
+        if (!input) return
+        input.focus({ preventScroll: true })
+        input.select()
+      })
+    }
+    dateFieldWasVisibleRef.current = dateFieldVisible
+  }, [layout, planetDate])
 
   // ── Computed values ────────────────────────────────────────
   const canUndo = undoStack.length > 0
@@ -1449,7 +1455,15 @@ export default function NumogramPage() {
   const currentRenderData = useMemo(() => {
     const data: Record<string, CurrentRender> = {}
     const isPlanetary = layout === 'planetary'
-    const curveTowardCenter = (from: Pos, to: Pos, factor: number): string => {
+    const resolveCurrentOrientation = (currentName: string, dot: number): 1 | -1 => {
+      const key = `${layout}:${currentName}`
+      const cached = currentOrientationRef.current[key]
+      if (cached) return cached
+      const chosen = (dot >= 0 ? 1 : -1) as 1 | -1
+      currentOrientationRef.current[key] = chosen
+      return chosen
+    }
+    const curveTowardCenter = (currentName: string, from: Pos, to: Pos, factor: number): string => {
       const dx = to.x - from.x
       const dy = to.y - from.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
@@ -1458,10 +1472,10 @@ export default function NumogramPage() {
       const px = -dy / dist
       const py = dx / dist
       const dot = px * (ctr.x - mx) + py * (ctr.y - my)
-      const sign = dot > 0 ? 1 : -1
+      const sign = resolveCurrentOrientation(currentName, dot)
       return quadPath(from, to, sign * dist * factor)
     }
-    const equilateralCentroid = (a: Pos, b: Pos, preferInside: boolean): Pos => {
+    const equilateralCentroid = (currentName: string, a: Pos, b: Pos, preferInside: boolean): Pos => {
       const mx = (a.x + b.x) / 2
       const my = (a.y + b.y) / 2
       const dx = b.x - a.x
@@ -1470,12 +1484,12 @@ export default function NumogramPage() {
       const px = -dy / dist
       const py = dx / dist
       const centerDot = px * (ctr.x - mx) + py * (ctr.y - my)
-      const towardCenter = centerDot >= 0 ? 1 : -1
+      const towardCenter = resolveCurrentOrientation(currentName, centerDot)
       const side = preferInside ? towardCenter : -towardCenter
       const centroidOffset = (Math.sqrt(3) / 6) * dist
       return { x: mx + px * side * centroidOffset, y: my + py * side * centroidOffset }
     }
-    const splitPairRoute = (dest: Pos, junction: Pos, bulgeFactor: number) => {
+    const splitPairRoute = (currentName: string, dest: Pos, junction: Pos, bulgeFactor: number) => {
       const dx = junction.x - dest.x
       const dy = junction.y - dest.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
@@ -1485,7 +1499,8 @@ export default function NumogramPage() {
       const py = dx / dist
       // For the shared destination/junction segment:
       // dest->junction bends inward (concave), junction->dest bends outward (convex).
-      const towardCenter = px * (ctr.x - mx) + py * (ctr.y - my) >= 0 ? 1 : -1
+      const centerDot = px * (ctr.x - mx) + py * (ctr.y - my)
+      const towardCenter = resolveCurrentOrientation(currentName, centerDot)
       const bulge = towardCenter * dist * bulgeFactor
       return {
         legToJunction: quadPath(dest, junction, bulge),
@@ -1504,13 +1519,13 @@ export default function NumogramPage() {
           const zB = pos[partner]
           const dest = pos[toZone]
           const other = c.from === toZone ? zB : zA
-          const junction = equilateralCentroid(dest, other, true)
+          const junction = equilateralCentroid(c.name, dest, other, true)
           const destIsA = c.from === toZone
           const nonDestSource = destIsA ? zB : zA
           const nonDestLeg = c.name === 'Plex' && !destIsA
-            ? curveTowardCenter(nonDestSource, junction, 0.12)
+            ? curveTowardCenter(c.name, nonDestSource, junction, 0.12)
             : curveAway(nonDestSource, junction, ctr.x, ctr.y, 0.12)
-          const split = splitPairRoute(dest, junction, 0.24)
+          const split = splitPairRoute(c.name, dest, junction, 0.24)
           data[c.name] = {
             type: 'yshape',
             legA: destIsA ? split.legToJunction : nonDestLeg,
@@ -1545,12 +1560,12 @@ export default function NumogramPage() {
           if (convergesToLower) {
             const destIsA = c.from === toZone
             const other = destIsA ? zB : zA
-            const junction = equilateralCentroid(dest, other, true)
+            const junction = equilateralCentroid(c.name, dest, other, true)
             const legCurve = isPlanetary ? 0.3 : 0.14
             const nonDestLeg = c.name === 'Plex' && !destIsA
-              ? curveTowardCenter(other, junction, legCurve)
+              ? curveTowardCenter(c.name, other, junction, legCurve)
               : curveAway(other, junction, ctr.x, ctr.y, legCurve)
-            const split = splitPairRoute(dest, junction, isPlanetary ? 0.2 : 0.3)
+            const split = splitPairRoute(c.name, dest, junction, isPlanetary ? 0.2 : 0.3)
             data[c.name] = {
               type: 'yshape',
               legA: destIsA ? split.legToJunction : nonDestLeg,
@@ -1567,7 +1582,7 @@ export default function NumogramPage() {
           const px = -dy / len
           const py = dx / len
           const centerDot = px * (ctr.x - syzMid.x) + py * (ctr.y - syzMid.y)
-          const towardCenter = centerDot >= 0 ? 1 : -1
+          const towardCenter = resolveCurrentOrientation(c.name, centerDot)
           const classOffset = towardCenter * (isPlanetary ? 7 : 11) // currents inside by default
           const junction: Pos = {
             x: syzMid.x + dx * jFrac + px * classOffset,
@@ -1643,8 +1658,13 @@ export default function NumogramPage() {
                 : l === 'labyrinth' ? <LabyrinthIcon clr={clr} />
                 : l === 'ladder' ? <LadderIcon clr={clr} />
                 : <PlanetaryIcon clr={clr} />
+              const shortcut = l === 'original' ? 'a'
+                : l === 'labyrinth' ? 's'
+                : l === 'ladder' ? 'd'
+                : 'f'
               return (
                 <Button key={l} active={active}
+                  shortcut={shortcut}
                   onClick={() => handleSwitchLayout(l)}
                   onMouseEnter={() => setHoveredLayout(l)}
                   onMouseLeave={() => setHoveredLayout(null)}
@@ -1665,29 +1685,36 @@ export default function NumogramPage() {
         {layout === 'planetary' && (
           <div className="pointer-events-auto flex items-start gap-1.5">
             <ButtonSet cornerSize={6}>
-              <Button active={orbiting} indicator onClick={() => setOrbiting(o => !o)} className="py-1.5">
+              <Button active={orbiting} indicator shortcut="z" onClick={() => setOrbiting(o => !o)} className="py-1.5">
                 <OrbitIcon clr={orbiting ? '#10ff50' : '#555'} />
               </Button>
             </ButtonSet>
             <div className="flex flex-col items-stretch gap-1">
               <ButtonSet cornerSize={6}>
-                <Button active={!!planetDate} onClick={() => {
+                <Button shortcut="x" active={!!planetDate} onClick={() => {
                   setOrbiting(false)
                   const d = planetDate ? new Date(planetDate + 'T12:00:00') : new Date()
                   if (!planetDate) setPlanetDate(new Date().toISOString().slice(0, 10))
                   setPlanetaryAngles(getAnglesForDate(d))
+                  requestAnimationFrame(() => {
+                    const input = planetaryDateInputRef.current
+                    if (!input) return
+                    input.focus({ preventScroll: true })
+                    input.select()
+                  })
                 }} className="py-1.5">
                   <TodayIcon />
                 </Button>
-                <Button onClick={() => { setOrbiting(false); setPlanetaryAngles(PLANETARY_DEFAULT_ANGLE); setPlanetDate('') }} className="py-1.5">
+                <Button shortcut="c" onClick={() => { setOrbiting(false); setPlanetaryAngles(PLANETARY_DEFAULT_ANGLE); setPlanetDate('') }} className="py-1.5">
                   <ResetIcon />
                 </Button>
-                <Button active={showOrbits} indicator onClick={() => setShowOrbits(o => !o)} className="py-1.5">
+                <Button shortcut="v" active={showOrbits} indicator onClick={() => setShowOrbits(o => !o)} className="py-1.5">
                   <OrbitsIcon clr={showOrbits ? '#10ff50' : '#555'} />
                 </Button>
               </ButtonSet>
               {planetDate && (
                 <input
+                  ref={planetaryDateInputRef}
                   type="date"
                   value={planetDate}
                   onChange={e => {
@@ -1702,6 +1729,7 @@ export default function NumogramPage() {
                   style={{
                     border: '1px solid rgba(16,255,80,0.12)',
                     color: '#10ff50',
+                    caretColor: '#10ff50',
                     clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)',
                   }}
                 />
@@ -2096,6 +2124,7 @@ export default function NumogramPage() {
             <div className="pt-3 grid gap-1.5 text-[10px]" style={{ color: '#9ca3af' }}>
               <div><span style={{ color: '#10ff50' }}>Mouse:</span> click+drag select, alt+drag pan, scroll zoom</div>
               <div><span style={{ color: '#10ff50' }}>Layout:</span> A original, S labyrinth, D ladder, F planetary</div>
+              <div><span style={{ color: '#10ff50' }}>Planetary:</span> Z orbit, X today, C reset, V orbits</div>
               <div><span style={{ color: '#10ff50' }}>Selection:</span> digits 0-9 toggle corresponding gate, Esc clears selection</div>
               <div><span style={{ color: '#10ff50' }}>History:</span> Cmd/Ctrl+Z undo, Shift+Cmd/Ctrl+Z redo, Ctrl+Y redo</div>
               <div><span style={{ color: '#10ff50' }}>Overlay:</span> Shift+/ toggles this shortcuts panel</div>

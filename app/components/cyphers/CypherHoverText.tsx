@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { Pill } from '../ui/Pill'
+
 export type HoverCypher = {
   id?: string
   name: string
@@ -302,18 +304,14 @@ export function CypherHoverText({ cyphers, markdown, markup, className = '' }: C
                 style={{ gridTemplateColumns: `repeat(${Math.max(1, line.length)}, minmax(0, 1fr))` }}
               >
                 {line.map(item => (
-                  <span
+                  <Pill
                     key={item.key}
-                    className="px-1 py-[1px] text-center text-[8px] leading-none"
-                    style={{
-                      color: item.accent,
-                      border: `1px solid ${item.accent}88`,
-                      background: `${item.accent}1a`,
-                    }}
+                    accent={item.accent}
+                    className="w-full justify-center text-center text-[8px]"
                     title={`${item.cypher.shortName || item.cypher.name}: ${item.value}`}
                   >
                     {item.value}
-                  </span>
+                  </Pill>
                 ))}
               </div>
             ))}

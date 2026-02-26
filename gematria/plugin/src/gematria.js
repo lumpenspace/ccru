@@ -53,17 +53,20 @@
     return `${value || ''}`.replace(/\s+/g, ' ').trim();
   }
 
-  function parseInterestingValues(raw) {
-    if (Array.isArray(raw)) {
-      return raw
-        .map(entry => Number(entry))
-        .filter(entry => Number.isFinite(entry));
-    }
-
-    return `${raw || ''}`
-      .split(/[^0-9-]+/)
+  function parseIntegerTokens(raw) {
+    const matches = `${raw || ''}`.match(/-?\d+/g);
+    if (!matches) return [];
+    return matches
       .map(chunk => Number(chunk))
       .filter(entry => Number.isFinite(entry));
+  }
+
+  function parseInterestingValues(raw) {
+    if (Array.isArray(raw)) {
+      return raw.flatMap(entry => parseIntegerTokens(entry));
+    }
+
+    return parseIntegerTokens(raw);
   }
 
   function getEnabledCyphers(settings) {
@@ -86,6 +89,7 @@
       id: cypher.id,
       name: cypher.name,
       shortName: cypher.shortName,
+      icon: cypher.icon,
       hue: cypher.hue,
       saturation: cypher.saturation,
       lightness: cypher.lightness,

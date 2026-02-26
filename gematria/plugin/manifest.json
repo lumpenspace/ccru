@@ -3,7 +3,7 @@
   "name": "CCRU Gematria Overlay",
   "version": "0.1.0",
   "description": "Twitter and selection gematria overlay with configurable cyphers and saved phrases.",
-  "permissions": ["storage", "contextMenus", "tabs"],
+  "permissions": ["storage", "contextMenus", "tabs", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background.js"
