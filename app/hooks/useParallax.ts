@@ -1,6 +1,6 @@
-import { useState, useEffect, type RefObject } from 'react'
+import { useState, useEffect } from 'react'
 
-export function useParallax(_ref: RefObject<HTMLDivElement | null>) {
+export function useParallax() {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
 
   useEffect(() => {

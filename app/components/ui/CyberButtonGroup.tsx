@@ -2,18 +2,21 @@
 
 import React from 'react'
 
-interface ButtonSetProps {
+type CyberButtonGroupProps = {
   children: React.ReactNode
   cornerSize?: number
   className?: string
 }
 
-export function ButtonSet({ children, cornerSize = 8, className = '' }: ButtonSetProps) {
+export function CyberButtonGroup({
+  children,
+  cornerSize = 8,
+  className = '',
+}: CyberButtonGroupProps) {
   return (
     <div
-      className={`inline-flex ${className}`}
+      className={`inline-flex border border-[#10ff50]/20 ${className}`}
       style={{
-        border: '1px solid rgba(16,255,80,0.12)',
         clipPath: `polygon(${cornerSize}px 0, 100% 0, 100% calc(100% - ${cornerSize}px), calc(100% - ${cornerSize}px) 100%, 0 100%, 0 ${cornerSize}px)`,
       }}
     >
@@ -21,3 +24,4 @@ export function ButtonSet({ children, cornerSize = 8, className = '' }: ButtonSe
     </div>
   )
 }
+

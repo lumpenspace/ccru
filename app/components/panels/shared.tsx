@@ -39,6 +39,75 @@ export function PanelRow({
   )
 }
 
+export interface SelectableListDisplayProps<T> {
+  item: T
+  index: number
+}
+
+interface SelectableListPanelBaseProps<T> {
+  items: readonly T[]
+  getKey: (item: T, index: number) => React.Key
+  header?: React.ReactNode
+  footer?: React.ReactNode
+  className?: string
+  onItemSelect?: (item: T, index: number) => void
+  onItemMouseEnter?: (item: T, index: number, event: React.MouseEvent<HTMLDivElement>) => void
+  onItemMouseLeave?: (item: T, index: number) => void
+  getItemOpacity?: (item: T, index: number) => number | undefined
+  getItemClassName?: (item: T, index: number) => string | undefined
+  getItemStyle?: (item: T, index: number) => React.CSSProperties | undefined
+}
+
+type SelectableListPanelRendererProps<T> =
+  | { itemDisplay: (props: SelectableListDisplayProps<T>) => React.ReactNode; ItemDisplayComponent?: never }
+  | { itemDisplay?: never; ItemDisplayComponent: React.ComponentType<SelectableListDisplayProps<T>> }
+
+type SelectableListPanelProps<T> = SelectableListPanelBaseProps<T> & SelectableListPanelRendererProps<T>
+
+export function SelectableListPanel<T>(props: SelectableListPanelProps<T>) {
+  const {
+    items,
+    getKey,
+    header,
+    footer,
+    className,
+    onItemSelect,
+    onItemMouseEnter,
+    onItemMouseLeave,
+    getItemOpacity,
+    getItemClassName,
+    getItemStyle,
+  } = props
+
+  const renderItem = ({ item, index }: SelectableListDisplayProps<T>): React.ReactNode => {
+    if ('itemDisplay' in props && props.itemDisplay) {
+      return props.itemDisplay({ item, index })
+    }
+    const ItemDisplay = props.ItemDisplayComponent
+    return <ItemDisplay item={item} index={index} />
+  }
+
+  return (
+    <PanelList className={className}>
+      {header}
+      {items.map((item, index) => (
+        <PanelRow
+          key={getKey(item, index)}
+          className={getItemClassName?.(item, index)}
+          style={getItemStyle?.(item, index)}
+          opacity={getItemOpacity?.(item, index)}
+          onClick={onItemSelect ? () => onItemSelect(item, index) : undefined}
+          onMouseEnter={onItemMouseEnter ? e => onItemMouseEnter(item, index, e) : undefined}
+          onMouseLeave={onItemMouseLeave ? () => onItemMouseLeave(item, index) : undefined}
+        >
+          {renderItem({ item, index })}
+        </PanelRow>
+      ))}
+      {footer}
+    </PanelList>
+  )
+}
+
 interface PanelColorBarProps {
   color: string
   active: boolean

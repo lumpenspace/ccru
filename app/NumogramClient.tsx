@@ -25,9 +25,9 @@ import { useCanvasZoom } from './hooks/useCanvasPan'
 import { usePanelGroupLayout } from './hooks/usePanelGroupLayout'
 
 // Components
-import { Button } from './components/Button'
-import { ButtonSet } from './components/ButtonSet'
-import { Panel } from './components/Panel'
+import { CyberButton as Button } from './components/ui/CyberButton'
+import { CyberButtonGroup as ButtonSet } from './components/ui/CyberButtonGroup'
+import { CyberPanel as Panel } from './components/ui/CyberPanel'
 import { Projection } from './components/projection/Projection'
 import { InfoDisplay } from './components/info/InfoDisplay'
 import { PinnedBackground } from './components/info/PinnedBackground'
@@ -137,6 +137,33 @@ function OrbitsIcon({ clr }: { clr: string }) {
     </svg>
   )
 }
+function UndoIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <path d="M8 8H4V4" stroke={clr} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 8C6.2 5.1 9.6 3.8 13 4.5C17.2 5.3 20 9 20 13.2C20 17.5 16.6 21 12.3 21C9.1 21 6.3 19.1 5 16.3" stroke={clr} strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+function RedoIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <path d="M16 8H20V4" stroke={clr} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 8C17.8 5.1 14.4 3.8 11 4.5C6.8 5.3 4 9 4 13.2C4 17.5 7.4 21 11.7 21C14.9 21 17.7 19.1 19 16.3" stroke={clr} strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+function ShareIcon({ clr }: { clr: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <circle cx="6" cy="12" r="2" stroke={clr} strokeWidth="1.2" />
+      <circle cx="18" cy="6" r="2" stroke={clr} strokeWidth="1.2" />
+      <circle cx="18" cy="18" r="2" stroke={clr} strokeWidth="1.2" />
+      <path d="M8 11L16 7" stroke={clr} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M8 13L16 17" stroke={clr} strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 const MOBILE_SELECTOR_BREAKPOINT = 820
 const PANEL_GROUP_ORDER = ['layers', 'labels', 'zones', 'regions', 'syz', 'currents', 'gates'] as const
@@ -158,6 +185,7 @@ const DESKTOP_PANEL_RIGHT_X = 216
 const PANEL_WIDTH = 180
 const INFO_PANEL_WIDTH = 320
 const MAX_HISTORY_ENTRIES = 80
+const LAYOUT_GLITCH_DURATION_MS = 360
 const SOURCE_LINKS = [
   { label: '1', href: 'http://www.ccru.net/declab.htm' },
   { label: '2', href: 'https://socialecologies.wordpress.com/2025/08/17/the-numogram-diagram-time-circuits-and-acceleration/' },
@@ -209,6 +237,9 @@ export default function NumogramPage() {
   const infoPanelInitRef = useRef(false)
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
   const [shareCopied, setShareCopied] = useState(false)
+  const [layoutGlitching, setLayoutGlitching] = useState(false)
+  const [layoutGlitchRun, setLayoutGlitchRun] = useState(0)
+  const [urlSyncReady, setUrlSyncReady] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [undoStack, setUndoStack] = useState<HistorySnapshot[]>([])
   const [redoStack, setRedoStack] = useState<HistorySnapshot[]>([])
@@ -223,7 +254,7 @@ export default function NumogramPage() {
   const introPhase = useIntro()
   const { planetaryAngles, setPlanetaryAngles, orbiting, setOrbiting, onDateUpdateRef } = useOrbitalAnimation(layout, PLANETARY_DEFAULT_ANGLE)
   const { pos, ctr, svgHeight, planetaryPos, switchLayout } = useTween(layout, planetaryAngles)
-  const parallax = useParallax(svgWrapRef)
+  const parallax = useParallax()
   const {
     positions: panelPositions,
     zIndexes: panelZ,
@@ -245,9 +276,15 @@ export default function NumogramPage() {
   const orbitStartDateRef = useRef<Date | null>(null)
   const urlHydratedRef = useRef(false)
   const pendingShareSelectionRef = useRef<number[] | null>(null)
+  const skipFirstUrlSyncRef = useRef(true)
+  const lastSyncedQueryRef = useRef('')
   const historyReadyRef = useRef(false)
   const historyCurrentRef = useRef<HistorySnapshot | null>(null)
   const historyApplyingRef = useRef(false)
+  const layoutGlitchTimerRef = useRef<number | null>(null)
+  const currentOrientationRef = useRef<Record<string, 1 | -1>>({})
+  const planetaryDateInputRef = useRef<HTMLInputElement | null>(null)
+  const dateFieldWasVisibleRef = useRef(false)
 
   const zonesForRegion = useCallback((region: Region): number[] => {
     const zones: number[] = []
@@ -267,6 +304,44 @@ export default function NumogramPage() {
     }
     return Array.from(focus).sort((a, b) => a - b)
   }, [hlRegion, tcActive, zonesForRegion])
+
+  const sortSearchParams = useCallback((params: URLSearchParams): URLSearchParams => {
+    return new URLSearchParams(Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b)))
+  }, [])
+
+  const buildShareParams = useCallback((opts?: { includeLayoutAlways?: boolean }): URLSearchParams => {
+    const params = new URLSearchParams()
+    const selectedIds = Array.from(selZones).sort((a, b) => a - b)
+    const layerIds = Array.from(layers).sort()
+    const defaultLayerIds = [...DEFAULT_LAYERS].sort()
+    const includeLayout = opts?.includeLayoutAlways || layout !== 'original'
+
+    if (includeLayout) params.set('layout', layout)
+    if (selectedIds.length > 0) params.set('selected', selectedIds.join(','))
+    if (layerIds.join(',') !== defaultLayerIds.join(',')) params.set('layers', layerIds.join(','))
+    if (hlRegion) params.set('region', hlRegion)
+    if (tcActive) params.set('tc', '1')
+    if (particlesOn) params.set('particles', '1')
+
+    if (layout === 'planetary') {
+      if (planetDate) params.set('date', planetDate)
+      if (!showOrbits) params.set('orbits', '0')
+    }
+
+    return sortSearchParams(params)
+  }, [layout, selZones, layers, hlRegion, tcActive, particlesOn, planetDate, showOrbits, sortSearchParams])
+
+  const triggerLayoutGlitch = useCallback(() => {
+    setLayoutGlitchRun(run => run + 1)
+    setLayoutGlitching(true)
+    if (layoutGlitchTimerRef.current !== null) {
+      window.clearTimeout(layoutGlitchTimerRef.current)
+    }
+    layoutGlitchTimerRef.current = window.setTimeout(() => {
+      setLayoutGlitching(false)
+      layoutGlitchTimerRef.current = null
+    }, LAYOUT_GLITCH_DURATION_MS)
+  }, [])
 
   const snapshotState = useCallback((): HistorySnapshot => ({
     layout,
@@ -291,11 +366,10 @@ export default function NumogramPage() {
 
   const applySnapshot = useCallback((snapshot: HistorySnapshot) => {
     if (layout !== snapshot.layout) {
+      triggerLayoutGlitch()
       switchLayout()
-      setLayout(snapshot.layout)
-    } else {
-      setLayout(snapshot.layout)
     }
+    setLayout(snapshot.layout)
     setLayers(new Set(snapshot.layers))
     setSelZones(new Set(snapshot.selZones))
     setHlRegion(snapshot.hlRegion)
@@ -317,7 +391,7 @@ export default function NumogramPage() {
         setPlanetaryAngles(PLANETARY_DEFAULT_ANGLE)
       }
     }
-  }, [layout, switchLayout, setPlanetaryAngles, setOrbiting])
+  }, [layout, switchLayout, setPlanetaryAngles, setOrbiting, triggerLayoutGlitch])
 
   // Keep orbit start date in sync
   useEffect(() => {
@@ -348,6 +422,14 @@ export default function NumogramPage() {
     updateViewport()
     window.addEventListener('resize', updateViewport)
     return () => window.removeEventListener('resize', updateViewport)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (layoutGlitchTimerRef.current !== null) {
+        window.clearTimeout(layoutGlitchTimerRef.current)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -387,7 +469,12 @@ export default function NumogramPage() {
 
   // ── Callbacks ──────────────────────────────────────────────
   const toggleLayer = useCallback((l: Layer) => {
-    setLayers(p => { const s = new Set(p); s.has(l) ? s.delete(l) : s.add(l); return s })
+    setLayers(prev => {
+      const next = new Set(prev)
+      if (next.has(l)) next.delete(l)
+      else next.add(l)
+      return next
+    })
   }, [])
 
   const toggleLabelVisibility = useCallback((key: keyof LabelVisibility) => {
@@ -395,9 +482,11 @@ export default function NumogramPage() {
   }, [])
 
   const handleSwitchLayout = useCallback((newLayout: Layout) => {
+    if (newLayout === layout) return
+    triggerLayoutGlitch()
     switchLayout()
     setLayout(newLayout)
-  }, [switchLayout])
+  }, [layout, switchLayout, triggerLayoutGlitch])
 
   const onHoverInfo = useCallback((info: HoverInfo | null) => {
     setHoverInfo(info)
@@ -517,7 +606,10 @@ export default function NumogramPage() {
     urlHydratedRef.current = true
 
     const params = new URLSearchParams(window.location.search)
-    if (!params.toString()) return
+    if (!params.toString()) {
+      setUrlSyncReady(true)
+      return
+    }
 
     const layoutParam = params.get('layout')
     if (layoutParam === 'original' || layoutParam === 'labyrinth' || layoutParam === 'ladder' || layoutParam === 'planetary') {
@@ -577,6 +669,7 @@ export default function NumogramPage() {
     if (pendingZones && pendingZones.length > 0) {
       pendingShareSelectionRef.current = pendingZones
     }
+    setUrlSyncReady(true)
   }, [setPlanetaryAngles, setOrbiting, zonesForRegion])
 
   useEffect(() => {
@@ -590,10 +683,28 @@ export default function NumogramPage() {
     return () => window.clearTimeout(timer)
   }, [layout, viewport.w, viewport.h, fitSelectionToView])
 
+  useEffect(() => {
+    if (!urlSyncReady) return
+    if (typeof window === 'undefined') return
+
+    const query = buildShareParams({ includeLayoutAlways: false }).toString()
+    if (skipFirstUrlSyncRef.current) {
+      skipFirstUrlSyncRef.current = false
+      lastSyncedQueryRef.current = query
+      return
+    }
+    if (query === lastSyncedQueryRef.current) return
+
+    const url = `${window.location.pathname}${query ? `?${query}` : ''}`
+    window.history.replaceState(window.history.state, '', url)
+    lastSyncedQueryRef.current = query
+  }, [urlSyncReady, buildShareParams])
+
   const onToggleZone = useCallback((z: number) => {
     setSelZones(prev => {
       const next = new Set(prev)
-      next.has(z) ? next.delete(z) : next.add(z)
+      if (next.has(z)) next.delete(z)
+      else next.add(z)
       return next
     })
   }, [])
@@ -810,18 +921,8 @@ export default function NumogramPage() {
         return
       }
 
-      const layoutByKey: Partial<Record<string, Layout>> = {
-        a: 'original',
-        s: 'labyrinth',
-        d: 'ladder',
-        f: 'planetary',
-      }
-      const nextLayout = layoutByKey[key]
-      if (nextLayout) {
-        e.preventDefault()
-        handleSwitchLayout(nextLayout)
-        return
-      }
+      const dateFieldVisible = layout === 'planetary' && !!planetDate
+      if (dateFieldVisible && /^[0-9]$/.test(key)) return
 
       if (!/^[0-9]$/.test(key)) return
       const zone = Number(key)
@@ -833,7 +934,20 @@ export default function NumogramPage() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleSwitchLayout, onSelectGate, onUndo, onRedo, shortcutsOpen])
+  }, [layout, planetDate, onSelectGate, onUndo, onRedo, shortcutsOpen])
+
+  useEffect(() => {
+    const dateFieldVisible = layout === 'planetary' && !!planetDate
+    if (dateFieldVisible && !dateFieldWasVisibleRef.current) {
+      requestAnimationFrame(() => {
+        const input = planetaryDateInputRef.current
+        if (!input) return
+        input.focus({ preventScroll: true })
+        input.select()
+      })
+    }
+    dateFieldWasVisibleRef.current = dateFieldVisible
+  }, [layout, planetDate])
 
   // ── Computed values ────────────────────────────────────────
   const canUndo = undoStack.length > 0
@@ -1069,21 +1183,7 @@ export default function NumogramPage() {
     if (layout === 'planetary' && !showOrbits) summaryBits.push('orbits hidden')
     const shareSubtitle = summaryBits.join(' · ')
 
-    const baseParams = new URLSearchParams()
-    baseParams.set('layout', layout)
-    if (selectedIds.length > 0) {
-      baseParams.set('selected', selectedIds.join(','))
-    }
-    if (layerIds.join(',') !== defaultLayerIds.join(',')) {
-      baseParams.set('layers', layerIds.join(','))
-    }
-    if (hlRegion) baseParams.set('region', hlRegion)
-    if (tcActive) baseParams.set('tc', '1')
-    if (particlesOn) baseParams.set('particles', '1')
-    if (layout === 'planetary') {
-      if (planetDate) baseParams.set('date', planetDate)
-      if (!showOrbits) baseParams.set('orbits', '0')
-    }
+    const baseParams = buildShareParams({ includeLayoutAlways: true })
 
     let finalParams = new URLSearchParams(baseParams)
     try {
@@ -1136,7 +1236,7 @@ export default function NumogramPage() {
       // Non-fatal: share still works without an uploaded preview image.
     }
 
-    finalParams = new URLSearchParams(Array.from(finalParams.entries()).sort(([a], [b]) => a.localeCompare(b)))
+    finalParams = sortSearchParams(finalParams)
     const query = finalParams.toString()
     const url = `${window.location.origin}${window.location.pathname}${query ? `?${query}` : ''}`
 
@@ -1151,7 +1251,7 @@ export default function NumogramPage() {
     } catch {
       // User-cancelled share or unavailable clipboard permissions.
     }
-  }, [layout, selZones, layers, hlRegion, tcActive, particlesOn, planetDate, showOrbits, captureShareDataUrl, getShareFocusZones])
+  }, [layout, selZones, layers, particlesOn, planetDate, showOrbits, captureShareDataUrl, getShareFocusZones, buildShareParams, sortSearchParams])
 
   const anyFocus = hlZones.size > 0
 
@@ -1355,7 +1455,15 @@ export default function NumogramPage() {
   const currentRenderData = useMemo(() => {
     const data: Record<string, CurrentRender> = {}
     const isPlanetary = layout === 'planetary'
-    const curveTowardCenter = (from: Pos, to: Pos, factor: number): string => {
+    const resolveCurrentOrientation = (currentName: string, dot: number): 1 | -1 => {
+      const key = `${layout}:${currentName}`
+      const cached = currentOrientationRef.current[key]
+      if (cached) return cached
+      const chosen = (dot >= 0 ? 1 : -1) as 1 | -1
+      currentOrientationRef.current[key] = chosen
+      return chosen
+    }
+    const curveTowardCenter = (currentName: string, from: Pos, to: Pos, factor: number): string => {
       const dx = to.x - from.x
       const dy = to.y - from.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
@@ -1364,10 +1472,10 @@ export default function NumogramPage() {
       const px = -dy / dist
       const py = dx / dist
       const dot = px * (ctr.x - mx) + py * (ctr.y - my)
-      const sign = dot > 0 ? 1 : -1
+      const sign = resolveCurrentOrientation(currentName, dot)
       return quadPath(from, to, sign * dist * factor)
     }
-    const equilateralCentroid = (a: Pos, b: Pos, preferInside: boolean): Pos => {
+    const equilateralCentroid = (currentName: string, a: Pos, b: Pos, preferInside: boolean): Pos => {
       const mx = (a.x + b.x) / 2
       const my = (a.y + b.y) / 2
       const dx = b.x - a.x
@@ -1376,12 +1484,12 @@ export default function NumogramPage() {
       const px = -dy / dist
       const py = dx / dist
       const centerDot = px * (ctr.x - mx) + py * (ctr.y - my)
-      const towardCenter = centerDot >= 0 ? 1 : -1
+      const towardCenter = resolveCurrentOrientation(currentName, centerDot)
       const side = preferInside ? towardCenter : -towardCenter
       const centroidOffset = (Math.sqrt(3) / 6) * dist
       return { x: mx + px * side * centroidOffset, y: my + py * side * centroidOffset }
     }
-    const splitPairRoute = (dest: Pos, junction: Pos, bulgeFactor: number) => {
+    const splitPairRoute = (currentName: string, dest: Pos, junction: Pos, bulgeFactor: number) => {
       const dx = junction.x - dest.x
       const dy = junction.y - dest.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
@@ -1391,7 +1499,8 @@ export default function NumogramPage() {
       const py = dx / dist
       // For the shared destination/junction segment:
       // dest->junction bends inward (concave), junction->dest bends outward (convex).
-      const towardCenter = px * (ctr.x - mx) + py * (ctr.y - my) >= 0 ? 1 : -1
+      const centerDot = px * (ctr.x - mx) + py * (ctr.y - my)
+      const towardCenter = resolveCurrentOrientation(currentName, centerDot)
       const bulge = towardCenter * dist * bulgeFactor
       return {
         legToJunction: quadPath(dest, junction, bulge),
@@ -1410,13 +1519,13 @@ export default function NumogramPage() {
           const zB = pos[partner]
           const dest = pos[toZone]
           const other = c.from === toZone ? zB : zA
-          const junction = equilateralCentroid(dest, other, true)
+          const junction = equilateralCentroid(c.name, dest, other, true)
           const destIsA = c.from === toZone
           const nonDestSource = destIsA ? zB : zA
           const nonDestLeg = c.name === 'Plex' && !destIsA
-            ? curveTowardCenter(nonDestSource, junction, 0.12)
+            ? curveTowardCenter(c.name, nonDestSource, junction, 0.12)
             : curveAway(nonDestSource, junction, ctr.x, ctr.y, 0.12)
-          const split = splitPairRoute(dest, junction, 0.24)
+          const split = splitPairRoute(c.name, dest, junction, 0.24)
           data[c.name] = {
             type: 'yshape',
             legA: destIsA ? split.legToJunction : nonDestLeg,
@@ -1451,12 +1560,12 @@ export default function NumogramPage() {
           if (convergesToLower) {
             const destIsA = c.from === toZone
             const other = destIsA ? zB : zA
-            const junction = equilateralCentroid(dest, other, true)
+            const junction = equilateralCentroid(c.name, dest, other, true)
             const legCurve = isPlanetary ? 0.3 : 0.14
             const nonDestLeg = c.name === 'Plex' && !destIsA
-              ? curveTowardCenter(other, junction, legCurve)
+              ? curveTowardCenter(c.name, other, junction, legCurve)
               : curveAway(other, junction, ctr.x, ctr.y, legCurve)
-            const split = splitPairRoute(dest, junction, isPlanetary ? 0.2 : 0.3)
+            const split = splitPairRoute(c.name, dest, junction, isPlanetary ? 0.2 : 0.3)
             data[c.name] = {
               type: 'yshape',
               legA: destIsA ? split.legToJunction : nonDestLeg,
@@ -1473,7 +1582,7 @@ export default function NumogramPage() {
           const px = -dy / len
           const py = dx / len
           const centerDot = px * (ctr.x - syzMid.x) + py * (ctr.y - syzMid.y)
-          const towardCenter = centerDot >= 0 ? 1 : -1
+          const towardCenter = resolveCurrentOrientation(c.name, centerDot)
           const classOffset = towardCenter * (isPlanetary ? 7 : 11) // currents inside by default
           const junction: Pos = {
             x: syzMid.x + dx * jFrac + px * classOffset,
@@ -1549,8 +1658,13 @@ export default function NumogramPage() {
                 : l === 'labyrinth' ? <LabyrinthIcon clr={clr} />
                 : l === 'ladder' ? <LadderIcon clr={clr} />
                 : <PlanetaryIcon clr={clr} />
+              const shortcut = l === 'original' ? 'a'
+                : l === 'labyrinth' ? 's'
+                : l === 'ladder' ? 'd'
+                : 'f'
               return (
                 <Button key={l} active={active}
+                  shortcut={shortcut}
                   onClick={() => handleSwitchLayout(l)}
                   onMouseEnter={() => setHoveredLayout(l)}
                   onMouseLeave={() => setHoveredLayout(null)}
@@ -1571,29 +1685,36 @@ export default function NumogramPage() {
         {layout === 'planetary' && (
           <div className="pointer-events-auto flex items-start gap-1.5">
             <ButtonSet cornerSize={6}>
-              <Button active={orbiting} indicator onClick={() => setOrbiting(o => !o)} className="py-1.5">
+              <Button active={orbiting} indicator shortcut="z" onClick={() => setOrbiting(o => !o)} className="py-1.5">
                 <OrbitIcon clr={orbiting ? '#10ff50' : '#555'} />
               </Button>
             </ButtonSet>
             <div className="flex flex-col items-stretch gap-1">
               <ButtonSet cornerSize={6}>
-                <Button active={!!planetDate} onClick={() => {
+                <Button shortcut="x" active={!!planetDate} onClick={() => {
                   setOrbiting(false)
                   const d = planetDate ? new Date(planetDate + 'T12:00:00') : new Date()
                   if (!planetDate) setPlanetDate(new Date().toISOString().slice(0, 10))
                   setPlanetaryAngles(getAnglesForDate(d))
+                  requestAnimationFrame(() => {
+                    const input = planetaryDateInputRef.current
+                    if (!input) return
+                    input.focus({ preventScroll: true })
+                    input.select()
+                  })
                 }} className="py-1.5">
                   <TodayIcon />
                 </Button>
-                <Button onClick={() => { setOrbiting(false); setPlanetaryAngles(PLANETARY_DEFAULT_ANGLE); setPlanetDate('') }} className="py-1.5">
+                <Button shortcut="c" onClick={() => { setOrbiting(false); setPlanetaryAngles(PLANETARY_DEFAULT_ANGLE); setPlanetDate('') }} className="py-1.5">
                   <ResetIcon />
                 </Button>
-                <Button active={showOrbits} indicator onClick={() => setShowOrbits(o => !o)} className="py-1.5">
+                <Button shortcut="v" active={showOrbits} indicator onClick={() => setShowOrbits(o => !o)} className="py-1.5">
                   <OrbitsIcon clr={showOrbits ? '#10ff50' : '#555'} />
                 </Button>
               </ButtonSet>
               {planetDate && (
                 <input
+                  ref={planetaryDateInputRef}
                   type="date"
                   value={planetDate}
                   onChange={e => {
@@ -1608,6 +1729,7 @@ export default function NumogramPage() {
                   style={{
                     border: '1px solid rgba(16,255,80,0.12)',
                     color: '#10ff50',
+                    caretColor: '#10ff50',
                     clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)',
                   }}
                 />
@@ -1641,9 +1763,16 @@ export default function NumogramPage() {
       {/* Pinned background */}
       <PinnedBackground pinnedInfo={pinnedInfo} hoverInfo={hoverInfo} introPhase={introPhase} />
 
+      {layoutGlitching && (
+        <div
+          key={`layout-glitch-${layoutGlitchRun}`}
+          className="layout-switch-glitch-overlay fixed inset-0 pointer-events-none z-[68]"
+        />
+      )}
+
       {/* Main content */}
       <div
-        className="relative z-10 flex flex-col items-center w-full"
+        className={`relative z-10 flex flex-col items-center w-full ${layoutGlitching ? 'layout-switch-glitch' : ''}`}
         style={{
           transition: 'opacity 1s ease',
           opacity: introPhase === 'title' ? 0 : introPhase === 'fading' ? 0.8 : 1,
@@ -1732,13 +1861,59 @@ export default function NumogramPage() {
             background: 'linear-gradient(180deg, rgba(8,12,20,0.82) 0%, rgba(4,7,13,0.9) 100%)',
           }}
         >
-          <div className="flex items-center">
+          <div className="flex items-center gap-1.5">
             <span
               className="text-[9px] tracking-[0.28em] uppercase"
               style={{ color: '#10ff50', textShadow: '0 0 6px rgba(16,255,80,0.3)' }}
             >
               Numogram
             </span>
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                className="px-1.5 py-1"
+                style={{
+                  color: canUndo ? '#6b7280' : '#4b5563',
+                  border: `1px solid ${canUndo ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
+                  background: canUndo ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
+                  opacity: canUndo ? 1 : 0.45,
+                }}
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Undo (Cmd/Ctrl+Z)"
+                aria-label="Undo"
+              >
+                <UndoIcon clr={canUndo ? '#6b7280' : '#4b5563'} />
+              </button>
+              <button
+                className="px-1.5 py-1"
+                style={{
+                  color: canRedo ? '#6b7280' : '#4b5563',
+                  border: `1px solid ${canRedo ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
+                  background: canRedo ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
+                  opacity: canRedo ? 1 : 0.45,
+                }}
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Redo (Shift+Cmd/Ctrl+Z)"
+                aria-label="Redo"
+              >
+                <RedoIcon clr={canRedo ? '#6b7280' : '#4b5563'} />
+              </button>
+              <button
+                className="px-1.5 py-1"
+                style={{
+                  color: shareCopied ? '#10ff50' : '#6b7280',
+                  border: `1px solid ${shareCopied ? 'rgba(16,255,80,0.35)' : 'rgba(107,114,128,0.35)'}`,
+                  background: shareCopied ? 'rgba(16,255,80,0.08)' : 'rgba(107,114,128,0.06)',
+                  opacity: 1,
+                }}
+                onClick={onShareExplanation}
+                title="Share current state"
+                aria-label="Share current state"
+              >
+                <ShareIcon clr={shareCopied ? '#10ff50' : '#6b7280'} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1854,34 +2029,6 @@ export default function NumogramPage() {
           <button
             className="ml-auto text-[8px] uppercase tracking-[0.15em] px-2 py-1"
             style={{
-              color: canUndo ? '#6b7280' : '#4b5563',
-              border: `1px solid ${canUndo ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
-              background: canUndo ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
-              opacity: canUndo ? 1 : 0.45,
-            }}
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo (Cmd/Ctrl+Z)"
-          >
-            undo
-          </button>
-          <button
-            className="text-[8px] uppercase tracking-[0.15em] px-2 py-1"
-            style={{
-              color: canRedo ? '#6b7280' : '#4b5563',
-              border: `1px solid ${canRedo ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
-              background: canRedo ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
-              opacity: canRedo ? 1 : 0.45,
-            }}
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo (Shift+Cmd/Ctrl+Z)"
-          >
-            redo
-          </button>
-          <button
-            className="text-[8px] uppercase tracking-[0.15em] px-2 py-1"
-            style={{
               color: selZones.size > 0 ? '#6b7280' : '#4b5563',
               border: `1px solid ${selZones.size > 0 ? 'rgba(107,114,128,0.35)' : 'rgba(75,85,99,0.25)'}`,
               background: selZones.size > 0 ? 'rgba(107,114,128,0.06)' : 'rgba(55,65,81,0.08)',
@@ -1892,20 +2039,6 @@ export default function NumogramPage() {
           >
             clear
           </button>
-          <button
-            className="text-[8px] uppercase tracking-[0.15em] px-2 py-1"
-            style={{
-              color: shareCopied ? '#10ff50' : '#6b7280',
-              border: `1px solid ${
-                shareCopied ? 'rgba(16,255,80,0.35)' : 'rgba(107,114,128,0.35)'
-              }`,
-              background: shareCopied ? 'rgba(16,255,80,0.08)' : 'rgba(107,114,128,0.06)',
-              opacity: 1,
-            }}
-            onClick={onShareExplanation}
-          >
-            {shareCopied ? 'copied' : 'share'}
-          </button>
         </div>
         <div className="overflow-y-auto" style={{ maxHeight: '52vh' }}>
           <InfoDisplay
@@ -1913,6 +2046,7 @@ export default function NumogramPage() {
             pinnedInfo={pinnedInfo}
             selectedInfos={selectedInfos}
             onRemoveSelectedInfo={onRemoveSelectedInfo}
+            onHoverSelectedInfo={onHoverInfo}
           />
         </div>
       </Panel>
@@ -1990,6 +2124,7 @@ export default function NumogramPage() {
             <div className="pt-3 grid gap-1.5 text-[10px]" style={{ color: '#9ca3af' }}>
               <div><span style={{ color: '#10ff50' }}>Mouse:</span> click+drag select, alt+drag pan, scroll zoom</div>
               <div><span style={{ color: '#10ff50' }}>Layout:</span> A original, S labyrinth, D ladder, F planetary</div>
+              <div><span style={{ color: '#10ff50' }}>Planetary:</span> Z orbit, X today, C reset, V orbits</div>
               <div><span style={{ color: '#10ff50' }}>Selection:</span> digits 0-9 toggle corresponding gate, Esc clears selection</div>
               <div><span style={{ color: '#10ff50' }}>History:</span> Cmd/Ctrl+Z undo, Shift+Cmd/Ctrl+Z redo, Ctrl+Y redo</div>
               <div><span style={{ color: '#10ff50' }}>Overlay:</span> Shift+/ toggles this shortcuts panel</div>
