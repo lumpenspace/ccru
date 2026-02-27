@@ -93,7 +93,7 @@
     if (!selectedInputEl || !selectedValuesEl) return;
     const phrase = utils.sanitizeText(selectedInputEl.value || '');
     if (!phrase) {
-      selectedValuesEl.innerHTML = '<span class="gm-cyber-muted">Select text in the active tab, or type here.</span>';
+      selectedValuesEl.innerHTML = '<span class="gm-cyber-muted">Values appear here as you type.</span>';
       return;
     }
     const values = utils.calcValuesForText(phrase, settings);
@@ -456,6 +456,15 @@
 
     const selectedActions = document.createElement('div');
     selectedActions.className = 'gm-popup-action-row';
+    const savedLink = document.createElement('a');
+    savedLink.href = '#';
+    savedLink.className = 'gm-popup-saved-link';
+    savedLink.textContent = 'View saved items';
+    savedLink.addEventListener('click', event => {
+      event.preventDefault();
+      void openSavedPage();
+    });
+    selectedActions.appendChild(savedLink);
     selectedSaveButtonEl = ui.createButton({ label: 'Save' });
     selectedSaveButtonEl.classList.add('gm-popup-save-text');
     selectedSaveButtonEl.addEventListener('click', async event => {
@@ -550,21 +559,11 @@
     settingsPanel.body.appendChild(interestingField);
     settingsPanel.body.appendChild(cypherField);
 
-    const savedLink = document.createElement('a');
-    savedLink.href = '#';
-    savedLink.className = 'gm-popup-saved-link';
-    savedLink.textContent = 'View saved items';
-    savedLink.addEventListener('click', event => {
-      event.preventDefault();
-      void openSavedPage();
-    });
-
     saveStatusEl = document.createElement('div');
     saveStatusEl.className = 'gm-popup-status';
 
     popupRoot.appendChild(selectedPanel.root);
     popupRoot.appendChild(settingsPanel.root);
-    popupRoot.appendChild(savedLink);
     popupRoot.appendChild(saveStatusEl);
   }
 
