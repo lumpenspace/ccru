@@ -550,7 +550,8 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: min(300px, calc(100% - 18px));
+  width: auto;
+  max-width: min(300px, calc(100% - 18px));
   z-index: 40;
   opacity: 0;
   pointer-events: none;
@@ -563,6 +564,12 @@
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+
+.gm-tweet-hover-overlay .gm-values {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
 }
 
 .gm-tweet-hover-overlay .gm-cyber-panel-actions {
