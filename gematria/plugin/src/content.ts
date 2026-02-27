@@ -283,6 +283,18 @@
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0; }
       const overlay = article.querySelector(`.${TWEET_OVERLAY_CLASS}`);
       if (!overlay || !(overlay instanceof HTMLElement)) return;
+
+      // Position overlay flush with tweet content right edge
+      const anchor = article.querySelector('[data-testid="tweetText"]')
+        || article.querySelector('[data-testid="cellInnerDiv"]');
+      if (anchor) {
+        const anchorRect = anchor.getBoundingClientRect();
+        const hostRect = article.getBoundingClientRect();
+        const badges = overlay.querySelectorAll('.gm-values > *');
+        const gap = badges.length >= 4 ? 6 : 2;
+        overlay.style.left = (anchorRect.right - hostRect.left + gap) + 'px';
+      }
+
       overlay.classList.add('gm-overlay-active');
 
       if (overlay.dataset.gematriaOverlayHoverBound !== '1') {

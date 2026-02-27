@@ -810,7 +810,6 @@ a.gm-btn-saved-link:hover {
   top: 8px;
   right: auto;
   left: 100%;
-  margin-left: 2px;
   width: max-content;
   z-index: 2147483640 !important;
   opacity: 0;
@@ -819,6 +818,7 @@ a.gm-btn-saved-link:hover {
   transition: opacity 120ms ease, transform 120ms ease;
   background: var(--gm-bg-0);
   border: 1px solid var(--gm-border-0);
+  clip-path: none;
 }
 
 .gm-tweet-hover-overlay.gm-overlay-active,
@@ -844,9 +844,6 @@ a.gm-btn-saved-link:hover {
   gap: 2px;
 }
 
-.gm-tweet-hover-overlay:has(.gm-values :nth-child(4)) {
-  margin-left: 6px;
-}
 
 .gm-tweet-hover-overlay .gm-values:has(:nth-child(4)) {
   grid-template-columns: repeat(2, 1fr);
