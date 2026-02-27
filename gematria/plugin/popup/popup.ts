@@ -453,11 +453,12 @@
     interestingPillsEl = document.createElement('div');
     interestingPillsEl.className = 'gm-popup-pill-list';
 
-    interestingInputEl = document.createElement('input');
-    interestingInputEl.type = 'text';
-    interestingInputEl.className = 'gm-popup-pill-entry';
-    interestingInputEl.placeholder = 'Enter values';
-    interestingInputEl.spellcheck = false;
+    interestingInputEl = ui.createInput({
+      type: 'text',
+      className: 'gm-popup-pill-entry',
+      placeholder: 'Enter values',
+      spellcheck: false,
+    });
     interestingField.appendChild(interestingPillsEl);
     interestingField.appendChild(interestingInputEl);
 
@@ -494,29 +495,24 @@
     cypherPanel.body.appendChild(cypherLabelRow);
     cypherPanel.body.appendChild(cypherListEl);
 
-    const actionsPanel = ui.createPanel({
-      title: 'Actions',
-      collapsible: true,
-      defaultOpen: false,
+    const savedLink = document.createElement('a');
+    savedLink.href = '#';
+    savedLink.className = 'gm-popup-saved-link';
+    savedLink.textContent = 'View saved items';
+    savedLink.addEventListener('click', event => {
+      event.preventDefault();
+      openSavedPage();
     });
-    const actionRow = document.createElement('div');
-    actionRow.className = 'gm-popup-action-row';
-
-    const openSavedButton = ui.createButton({ label: 'Open /gematria/saved' });
-    openSavedButton.addEventListener('click', openSavedPage);
 
     saveStatusEl = document.createElement('div');
     saveStatusEl.className = 'gm-popup-status';
-
-    actionRow.appendChild(openSavedButton);
-    actionRow.appendChild(saveStatusEl);
-    actionsPanel.body.appendChild(actionRow);
 
     popupRoot.appendChild(selectedPanel.root);
     popupRoot.appendChild(behaviorPanel.root);
     popupRoot.appendChild(interestingPanel.root);
     popupRoot.appendChild(cypherPanel.root);
-    popupRoot.appendChild(actionsPanel.root);
+    popupRoot.appendChild(savedLink);
+    popupRoot.appendChild(saveStatusEl);
   }
 
   async function init() {

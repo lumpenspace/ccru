@@ -1130,7 +1130,7 @@ export default function NumogramPage() {
     } catch {
       // User-cancelled share or unavailable clipboard permissions.
     }
-  }, [layout, selZones, layers, particlesOn, planetDate, showOrbits, captureShareDataUrl, getShareFocusZones, buildShareParams, sortSearchParams])
+  }, [layout, selZones, layers, hlRegion, tcActive, particlesOn, planetDate, showOrbits, captureShareDataUrl, getShareFocusZones, buildShareParams, sortSearchParams])
 
   const anyFocus = hlZones.size > 0
 

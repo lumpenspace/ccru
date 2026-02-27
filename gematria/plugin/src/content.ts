@@ -2,10 +2,15 @@
   if (!(globalThis as any).chrome || !chrome.storage || !(globalThis as any).GematriaPlugin) return;
 
   const namespace = (globalThis as any).GematriaPlugin;
-  const { storageKeys, defaultSettings, utils, ui } = namespace;
+  const { storageKeys, defaultSettings, utils, ui, ciphers } = namespace;
+  const cypherIconById = new Map(
+    Array.isArray(ciphers)
+      ? ciphers.map(cipher => [`${cipher?.id || ''}`, `${cipher?.icon || ''}`])
+      : []
+  );
 
   const TWITTER_HOST_PATTERN = /(^|\.)twitter\.com$|(^|\.)x\.com$/i;
-  const SAVED_PATH_PATTERN = /^\/gematria\/saved\/?$/i;
+  const SAVED_PATH_PATTERN = /^\/gematria(\/saved)?\/?$/i;
 
   const TWEET_CARD_CLASS = 'gm-tweet-name-widget';
   const TWEET_OVERLAY_CLASS = 'gm-tweet-hover-overlay';
@@ -81,7 +86,13 @@
   }
 
   function cypherGlyph(row) {
-    return `${row.icon || row.shortName || row.name || row.id || '?'}`;
+    const canonicalIcon = cypherIconById.get(`${row?.id || ''}`);
+    if (canonicalIcon) return canonicalIcon;
+
+    const rowIcon = `${row?.icon || ''}`.trim();
+    if (rowIcon) return rowIcon;
+
+    return `${row?.shortName || row?.name || row?.id || '?'}`;
   }
 
   function settingsSignature() {
@@ -173,10 +184,12 @@
         link,
       });
 
-      saveButton.textContent = 'Saved';
-      setTimeout(() => {
-        saveButton.textContent = 'Save';
-      }, 900);
+      const savedLink = document.createElement('a');
+      savedLink.href = '/gematria/saved';
+      savedLink.textContent = 'View saved items';
+      savedLink.className = saveButton.className;
+      savedLink.classList.add('gm-btn-saved-link');
+      saveButton.replaceWith(savedLink);
     });
   }
 
@@ -550,10 +563,12 @@
         values,
         link: pageUrl || location.href,
       });
-      saveButton.textContent = 'Saved';
-      setTimeout(() => {
-        saveButton.textContent = 'Save';
-      }, 900);
+      const link = document.createElement('a');
+      link.href = '/gematria/saved';
+      link.textContent = 'View saved items';
+      link.className = saveButton.className;
+      link.classList.add('gm-btn-saved-link');
+      saveButton.replaceWith(link);
     });
 
     closeButton.addEventListener('click', event => {
@@ -713,7 +728,40 @@
     });
   }
 
+  function waitForSavedRoot() {
+    if (document.documentElement.dataset.gematriaSavedRootWatchBound === '1') return;
+    document.documentElement.dataset.gematriaSavedRootWatchBound = '1';
+
+    let activeRoot = null;
+
+    const renderAfterAttach = () => {
+      const root = document.getElementById(SAVED_ROOT_ID);
+      if (!(root instanceof HTMLElement)) return;
+
+      const rootChanged = root !== activeRoot;
+      activeRoot = root;
+
+      bindSavedPageActions();
+      if (!rootChanged) return;
+
+      // Next.js hydration can temporarily clobber injected markup on first load.
+      renderSavedPage();
+      [100, 400, 1400].forEach(delay => {
+        window.setTimeout(() => {
+          if (root.isConnected) renderSavedPage();
+        }, delay);
+      });
+    };
+
+    renderAfterAttach();
+
+    const observer = new MutationObserver(() => renderAfterAttach());
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  }
+
   async function init() {
+    document.documentElement.dataset.gematriaInstalled = '1';
+
     settings = await readSettings();
 
     bindRuntimeMessages();
@@ -725,8 +773,7 @@
     }
 
     if (SAVED_PATH_PATTERN.test(location.pathname)) {
-      bindSavedPageActions();
-      renderSavedPage();
+      waitForSavedRoot();
     }
   }
 

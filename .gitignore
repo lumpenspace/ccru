@@ -17,3 +17,4 @@ node_modules/
 tsconfig.tsbuildinfo
 .vercel
 .env*.local
+public/downloads/

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:share-image": "node scripts/share-image-self-check.mjs",
-    "build:plugin": "tsc --project gematria/plugin/tsconfig.json"
+    "build:plugin": "tsc --project gematria/plugin/tsconfig.json",
+    "build:plugin-zip": "node scripts/build-plugin-zip.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

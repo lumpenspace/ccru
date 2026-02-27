@@ -51,7 +51,7 @@ export function useCanvasZoom(wrapRef: RefObject<HTMLDivElement | null>) {
         wheelGestureTimerRef.current = null
       }
     }
-  }, [wrapRef])
+  }, [wrapRef, clamp])
 
   const setZoomValue = useCallback((nextZoom: number) => {
     setZoom(clamp(nextZoom, 0.3, 5))

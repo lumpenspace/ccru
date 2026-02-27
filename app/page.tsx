@@ -36,7 +36,7 @@ function hasNumogramQuery(searchParams: SearchParams): boolean {
 
 export const metadata: Metadata = {
   title: 'QLIPHOTH Systems',
-  description: 'Global entrypoint for Numogram, Cifers, Components, and the standalone Gematria module.',
+  description: 'Global entrypoint for Numogram, Components, and the standalone Gematria module.',
 }
 
 export default function GlobalHome({ searchParams }: { searchParams: SearchParams }) {
@@ -53,7 +53,7 @@ export default function GlobalHome({ searchParams }: { searchParams: SearchParam
           Shared homepage for the project tools.
         </p>
 
-        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
           <Link
             href="/numogram"
             className="block border border-[#334155] bg-[#0b111a] p-4 transition-colors hover:border-[#10ff50]"
@@ -61,16 +61,6 @@ export default function GlobalHome({ searchParams }: { searchParams: SearchParam
             <h2 className="text-sm uppercase tracking-[0.16em] text-[#10ff50]">Numogram</h2>
             <p className="mt-2 text-sm text-gray-300">
               Interactive decimal labyrinth with shareable state and preview images.
-            </p>
-          </Link>
-
-          <Link
-            href="/cyphers"
-            className="block border border-[#334155] bg-[#0b111a] p-4 transition-colors hover:border-[#10ff50]"
-          >
-            <h2 className="text-sm uppercase tracking-[0.16em] text-[#10ff50]">Cifers</h2>
-            <p className="mt-2 text-sm text-gray-300">
-              CCRU gematria page with React component notes, Chrome plugin scaffold, and live calculator.
             </p>
           </Link>
 

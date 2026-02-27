@@ -473,12 +473,7 @@ export default function ComponentsShowcasePage() {
       <div className="mx-auto w-full max-w-[1160px] space-y-6">
         <CyberPageHeader
           title="Components Showcase"
-          description="Live-editable component library with data display, glitch effects, panels, inputs, and cypher hover"
-          links={[
-            { href: '/', label: 'Home' },
-            { href: '/numogram', label: 'Numogram' },
-            { href: '/cyphers', label: 'Cifers' },
-          ]}
+          description="Live-editable component library"
         />
 
         <CyberCardContainer title="Cypher Hover React Component" collapsible>

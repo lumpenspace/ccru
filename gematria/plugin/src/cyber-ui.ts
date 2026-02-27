@@ -115,6 +115,55 @@
     return textarea;
   }
 
+  function createInput({
+    className = '',
+    type = 'text',
+    placeholder = '',
+    spellcheck = false,
+    value = '',
+    autocomplete = '',
+    name = '',
+  } = {}): HTMLInputElement {
+    const input = createElement('input', className.trim()) as HTMLInputElement;
+    input.type = type as HTMLInputElement['type'];
+    input.placeholder = `${placeholder || ''}`;
+    input.spellcheck = spellcheck === true;
+    input.value = `${value || ''}`;
+    if (autocomplete) input.autocomplete = autocomplete as AutoFill;
+    if (name) input.name = `${name}`;
+    return input;
+  }
+
+  function createSelect({
+    className = '',
+    options = [] as any[],
+    value = undefined as string | undefined,
+    ariaLabel = '',
+    name = '',
+  } = {}): HTMLSelectElement {
+    const select = createElement('select', className.trim()) as HTMLSelectElement;
+    if (ariaLabel) select.setAttribute('aria-label', ariaLabel);
+    if (name) select.name = `${name}`;
+
+    for (const option of options) {
+      const normalized =
+        option && typeof option === 'object'
+          ? option
+          : {
+              label: `${option || ''}`,
+              value: `${option || ''}`,
+            };
+      const optionEl = createElement('option', '', `${normalized.label || ''}`) as HTMLOptionElement;
+      optionEl.value = `${normalized.value || ''}`;
+      optionEl.disabled = normalized.disabled === true;
+      if (normalized.selected === true) optionEl.selected = true;
+      select.appendChild(optionEl);
+    }
+
+    if (value !== undefined && value !== null) select.value = `${value}`;
+    return select;
+  }
+
   function createBadge({ label, value, accent, highlight = false, className = '' }: GematriaUiBadgeOptions = {}): HTMLSpanElement {
     const badge = createElement(
       'span',
@@ -308,6 +357,8 @@
     createPanel,
     createButton,
     createTextArea,
+    createInput,
+    createSelect,
     createBadge,
     createCheckboxRow,
     createSelectionRowWithPopup,

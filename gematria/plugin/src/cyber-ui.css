@@ -59,6 +59,10 @@
   transition: max-height 160ms ease, opacity 120ms ease, padding 120ms ease;
 }
 
+.gm-cyber-panel-collapsible:not(.gm-cyber-panel-collapsed) .gm-cyber-panel-body {
+  overflow: visible;
+}
+
 .gm-cyber-panel-collapsible.gm-cyber-panel-collapsed .gm-cyber-panel-body {
   max-height: 0;
   opacity: 0;
@@ -109,6 +113,19 @@
 
 .gm-cyber-button:hover {
   border-color: #5f87aa;
+}
+
+a.gm-btn-saved-link {
+  text-decoration: none;
+  color: var(--gm-accent);
+  border-color: var(--gm-accent);
+  display: inline-flex;
+  align-items: center;
+}
+
+a.gm-btn-saved-link:hover {
+  background: rgba(16, 255, 80, 0.1);
+  border-color: var(--gm-accent);
 }
 
 .gm-cyber-button.gm-cyber-button-danger:hover {
@@ -550,8 +567,9 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: auto;
-  max-width: min(300px, calc(100% - 18px));
+  left: auto;
+  width: max-content;
+  max-width: min(260px, 45%);
   z-index: 40;
   opacity: 0;
   pointer-events: none;

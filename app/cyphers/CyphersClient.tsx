@@ -147,11 +147,6 @@ export default function CyphersClient() {
           className="mb-5"
           title="Cifers"
           description="Live CCRU gematria calculator"
-          links={[
-            { href: '/', label: 'Home' },
-            { href: '/numogram', label: 'Numogram' },
-            { href: '/components', label: 'Components' },
-          ]}
         />
 
         <CyberPanel

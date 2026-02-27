@@ -9,3 +9,17 @@
 #popup-root .gm-cyber-panel-collapsible.gm-cyber-panel-collapsed .gm-cyber-panel-body {
   padding-top: 0;
 }
+
+.gm-popup-saved-link {
+  display: block;
+  text-align: center;
+  color: var(--gm-text-1);
+  font-size: 11px;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  padding: 4px 0;
+}
+
+.gm-popup-saved-link:hover {
+  color: var(--gm-accent);
+}

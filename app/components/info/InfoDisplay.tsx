@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import type { HoverInfo } from '../../data/types'
 import { ZONE_CLR, ZONE_REGION, ZONE_META, ZONE_PARTICLE } from '../../data/zones'
 import { SYZYGIES } from '../../data/syzygies'
@@ -322,8 +322,7 @@ export function InfoDisplay({
 }: InfoDisplayProps) {
   const info = hoverInfo || pinnedInfo
   const selectedByKey = new Map(selectedInfos.map(si => [selectedInfoKey(si), si]))
-  const selectedKeys = selectedInfos.map(selectedInfoKey)
-  const selectedIdsKey = selectedKeys.join('|')
+  const selectedKeys = useMemo(() => selectedInfos.map(selectedInfoKey), [selectedInfos])
   const [orderedKeys, setOrderedKeys] = useState<string[]>([])
 
   useEffect(() => {
@@ -339,7 +338,7 @@ export function InfoDisplay({
       if (next.length === prev.length && next.every((k, i) => k === prev[i])) return prev
       return next
     })
-  }, [selectedInfos.length, selectedIdsKey])
+  }, [selectedInfos.length, selectedKeys])
 
   if (selectedInfos.length > 0) {
     const groupItems = orderedKeys.reduce<PanelGroupItem[]>((acc, key) => {

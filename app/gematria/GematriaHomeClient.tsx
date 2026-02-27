@@ -16,12 +16,7 @@ export default function GematriaHomeClient() {
         <CyberPageHeader
           className="mb-5"
           title="Gematria"
-          description="Standalone module for plugin tooling and saved phrase workflow."
-          links={[
-            { href: '/', label: 'Home' },
-            { href: '/cyphers', label: 'Cifers' },
-            { href: '/components', label: 'Components' },
-          ]}
+          description="Plugin tooling and saved phrase workflow"
         />
 
         <section className="space-y-4">
@@ -41,8 +36,25 @@ export default function GematriaHomeClient() {
               </p>
               <CyberButtonGroup>
                 <CyberButton onClick={() => router.push('/gematria/plugin')}>Open Plugin Docs</CyberButton>
-                <CyberButton onClick={() => router.push('/gematria/saved')}>Open Saved Entries</CyberButton>
               </CyberButtonGroup>
+            </div>
+          </CyberPanel>
+
+          <CyberPanel
+            id="gematria-saved-list"
+            title="Saved"
+            position={{ x: 0, y: 0 }}
+            width="100%"
+            draggable={false}
+            onDragStart={() => {}}
+            positionMode="relative"
+            showToggle={false}
+          >
+            <div id="gematria-saved-root" className="px-3 py-3">
+              <div className="rounded-md border border-dashed border-[#334155] bg-[#0b111a] p-4 text-sm text-gray-400">
+                Install and enable the extension in <code>gematria/plugin</code>, then save phrases from tweet hover cards
+                or right-click selection overlays.
+              </div>
             </div>
           </CyberPanel>
         </section>

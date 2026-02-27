@@ -10,12 +10,7 @@ export default function GematriaSavedClient() {
         <CyberPageHeader
           className="mb-5"
           title="Gematria Saved Entries"
-          description="Rendered from local extension storage in gematria/plugin."
-          links={[
-            { href: '/gematria', label: 'Gematria' },
-            { href: '/gematria/plugin', label: 'Plugin' },
-            { href: '/components', label: 'Components' },
-          ]}
+          description="Extension storage"
         />
 
         <CyberPanel
