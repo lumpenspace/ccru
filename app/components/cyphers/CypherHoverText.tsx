@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Pill } from '../ui/Pill'
+import { calcGematria } from '../../cyphers/gematria'
 
 export type HoverCypher = {
   id?: string
@@ -37,7 +38,6 @@ type ParsedParagraph = {
   sentences: string[]
 }
 
-const NUMBER_CODES = new Set<number>([48, 49, 50, 51, 52, 53, 54, 55, 56, 57])
 const DOT_PLACEHOLDER = '\uE000'
 const URL_RE = /\b(?:https?:\/\/|www\.)[^\s]+/gi
 const EMAIL_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g
@@ -175,43 +175,6 @@ function fromMarkup(markup: string): ParsedParagraph[] {
   return [{ text: plain, sentences: splitSentences(plain) }]
 }
 
-function calcForCypher(text: string, cypher: HoverCypher): number {
-  let prepared = text.replace(/\[.+\]/g, '').trim()
-
-  if (cypher.diacriticsAsRegular !== false) {
-    prepared = prepared.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  }
-  if (cypher.caseSensitive !== true) prepared = prepared.toLowerCase()
-
-  const valueMap = new Map<number, number>()
-  for (let i = 0; i < cypher.chars.length; i++) {
-    valueMap.set(cypher.chars.charCodeAt(i), cypher.values[i])
-  }
-
-  let sum = 0
-  for (let i = 0; i < prepared.length; i++) {
-    const code = prepared.charCodeAt(i)
-    const value = valueMap.get(code)
-    if (value !== undefined) sum += value
-  }
-
-  if (!valueMap.has(49)) {
-    let curNum = ''
-    for (let i = 0; i < prepared.length; i++) {
-      const code = prepared.charCodeAt(i)
-      if (NUMBER_CODES.has(code)) {
-        curNum += String(code - 48)
-      } else if (curNum.length > 0 && code !== 44) {
-        sum += Number(curNum)
-        curNum = ''
-      }
-    }
-    if (curNum.length > 0) sum += Number(curNum)
-  }
-
-  return sum
-}
-
 function cypherAccent(cypher: HoverCypher): string {
   if (
     typeof cypher.hue === 'number' &&
@@ -242,7 +205,7 @@ export function CypherHoverText({ cyphers, markdown, markup, className = '' }: C
     if (!hoverTarget) return []
     return cyphers.map((cypher, index) => ({
       cypher,
-      value: calcForCypher(hoverTarget.text, cypher),
+      value: calcGematria(hoverTarget.text, cypher),
       accent: cypherAccent(cypher),
       key: cypher.id || cypher.name || `cypher-${index}`,
     }))

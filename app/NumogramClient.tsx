@@ -1130,7 +1130,7 @@ export default function NumogramPage() {
     } catch {
       // User-cancelled share or unavailable clipboard permissions.
     }
-  }, [layout, selZones, layers, particlesOn, planetDate, showOrbits, captureShareDataUrl, getShareFocusZones, buildShareParams, sortSearchParams])
+  }, [layout, selZones, layers, particlesOn, planetDate, showOrbits, hlRegion, tcActive, captureShareDataUrl, getShareFocusZones, buildShareParams, sortSearchParams])
 
   const anyFocus = hlZones.size > 0
 
@@ -1805,7 +1805,8 @@ export default function NumogramPage() {
         draggable={!isMobile}
         onHeightChange={onPanelHeight}
         onActivate={activatePanel}
-        open={layersOpen} onToggle={() => setLayersOpen(o => !o)} onDragStart={startDrag}>
+        open={layersOpen} onToggle={() => setLayersOpen(o => !o)} onDragStart={startDrag}
+        collapseDirection="vertical">
         <LayersPanel layers={layers} toggleLayer={toggleLayer}
           particlesOn={particlesOn} onToggleParticles={() => setParticlesOn(p => !p)} />
       </Panel>
@@ -1817,7 +1818,8 @@ export default function NumogramPage() {
         draggable={!isMobile}
         onHeightChange={onPanelHeight}
         onActivate={activatePanel}
-        open={labelsOpen} onToggle={() => setLabelsOpen(o => !o)} onDragStart={startDrag}>
+        open={labelsOpen} onToggle={() => setLabelsOpen(o => !o)} onDragStart={startDrag}
+        collapseDirection="vertical">
         <LabelsPanel labels={labelVisibility} onToggleLabel={toggleLabelVisibility} />
       </Panel>
 
@@ -1828,7 +1830,8 @@ export default function NumogramPage() {
         draggable={!isMobile}
         onHeightChange={onPanelHeight}
         onActivate={activatePanel}
-        open={zonesOpen} onToggle={() => setZonesOpen(o => !o)} onDragStart={startDrag}>
+        open={zonesOpen} onToggle={() => setZonesOpen(o => !o)} onDragStart={startDrag}
+        collapseDirection="vertical">
         <ZonesPanel selZones={selZones} hlZones={hlZones}
           onToggleZone={onToggleZone} onToggleAll={onToggleAllZones} onHoverInfo={onHoverInfo} />
       </Panel>
@@ -1840,7 +1843,8 @@ export default function NumogramPage() {
         draggable={!isMobile}
         onHeightChange={onPanelHeight}
         onActivate={activatePanel}
-        open={regionsOpen} onToggle={() => setRegionsOpen(o => !o)} onDragStart={startDrag}>
+        open={regionsOpen} onToggle={() => setRegionsOpen(o => !o)} onDragStart={startDrag}
+        collapseDirection="vertical">
         <RegionsPanel hlRegion={hlRegion} tcActive={tcActive}
           onSelectRegion={onSelectRegion} onToggleTC={onToggleTC} />
       </Panel>
@@ -1852,7 +1856,8 @@ export default function NumogramPage() {
         draggable={!isMobile}
         onHeightChange={onPanelHeight}
         onActivate={activatePanel}
-        open={syzOpen} onToggle={() => setSyzOpen(o => !o)} onDragStart={startDrag}>
+        open={syzOpen} onToggle={() => setSyzOpen(o => !o)} onDragStart={startDrag}
+        collapseDirection="vertical">
         <SyzygiesPanel selZones={selZones} hlZones={hlZones}
           onToggleSyzygyPair={onToggleSyzygyPair} onHoverInfo={onHoverInfo} />
       </Panel>
@@ -1864,7 +1869,8 @@ export default function NumogramPage() {
         draggable={!isMobile}
         onHeightChange={onPanelHeight}
         onActivate={activatePanel}
-        open={currentsOpen} onToggle={() => setCurrentsOpen(o => !o)} onDragStart={startDrag}>
+        open={currentsOpen} onToggle={() => setCurrentsOpen(o => !o)} onDragStart={startDrag}
+        collapseDirection="vertical">
         <CurrentsPanel selZones={selZones} hlZones={hlZones} onHoverInfo={onHoverInfo}
           onSelectCurrent={onSelectCurrent} />
       </Panel>
@@ -1876,7 +1882,8 @@ export default function NumogramPage() {
         draggable={!isMobile}
         onHeightChange={onPanelHeight}
         onActivate={activatePanel}
-        open={gatesOpen} onToggle={() => setGatesOpen(o => !o)} onDragStart={startDrag}>
+        open={gatesOpen} onToggle={() => setGatesOpen(o => !o)} onDragStart={startDrag}
+        collapseDirection="vertical">
         <GatesPanel hlZones={hlZones} selZones={selZones} onHoverInfo={onHoverInfo}
           onSelectGate={onSelectGate} onToggleAll={onToggleAllZones} />
       </Panel>
