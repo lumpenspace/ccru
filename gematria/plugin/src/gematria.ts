@@ -1,13 +1,13 @@
 (() => {
-  const namespace = globalThis.GematriaPlugin || {};
-  const numberCodes = new Set([48, 49, 50, 51, 52, 53, 54, 55, 56, 57]);
-  const charMapCache = new Map();
+  const namespace = (globalThis as any).GematriaPlugin || {} as Partial<GematriaPluginNamespace>;
+  const numberCodes = new Set<number>([48, 49, 50, 51, 52, 53, 54, 55, 56, 57]);
+  const charMapCache = new Map<string, Map<number, number>>();
 
-  function buildCharMap(cipher) {
+  function buildCharMap(cipher: GematriaCipher): Map<number, number> {
     const cached = charMapCache.get(cipher.id);
     if (cached) return cached;
 
-    const map = new Map();
+    const map = new Map<number, number>();
     for (let index = 0; index < cipher.chars.length; index += 1) {
       map.set(cipher.chars.charCodeAt(index), cipher.values[index]);
     }
@@ -15,7 +15,7 @@
     return map;
   }
 
-  function calcGematria(phrase, cipher) {
+  function calcGematria(phrase: string, cipher: GematriaCipher): number {
     let prepared = `${phrase || ''}`.replace(/\[.+\]/g, '').trim();
 
     if (cipher.diacriticsAsRegular) {
@@ -49,11 +49,11 @@
     return sum;
   }
 
-  function sanitizeText(value) {
+  function sanitizeText(value: unknown): string {
     return `${value || ''}`.replace(/\s+/g, ' ').trim();
   }
 
-  function parseIntegerTokens(raw) {
+  function parseIntegerTokens(raw: unknown): number[] {
     const matches = `${raw || ''}`.match(/-?\d+/g);
     if (!matches) return [];
     return matches
@@ -61,28 +61,28 @@
       .filter(entry => Number.isFinite(entry));
   }
 
-  function parseInterestingValues(raw) {
+  function parseInterestingValues(raw: unknown): number[] {
     if (Array.isArray(raw)) {
-      return raw.flatMap(entry => parseIntegerTokens(entry));
+      return raw.flatMap((entry: unknown) => parseIntegerTokens(entry));
     }
 
     return parseIntegerTokens(raw);
   }
 
-  function getEnabledCyphers(settings) {
+  function getEnabledCyphers(settings: GematriaSettings): GematriaCipher[] {
     const ids = new Set(
       Array.isArray(settings.enabledCypherIds)
         ? settings.enabledCypherIds
-        : namespace.defaultSettings.enabledCypherIds
+        : namespace.defaultSettings!.enabledCypherIds
     );
 
-    const enabled = namespace.ciphers.filter(cipher => ids.has(cipher.id));
+    const enabled = namespace.ciphers!.filter(cipher => ids.has(cipher.id));
     return enabled.length > 0
       ? enabled
-      : namespace.ciphers.filter(cipher => namespace.defaultSettings.enabledCypherIds.includes(cipher.id));
+      : namespace.ciphers!.filter(cipher => namespace.defaultSettings!.enabledCypherIds.includes(cipher.id));
   }
 
-  function calcValuesForText(text, settings) {
+  function calcValuesForText(text: string, settings: GematriaSettings): GematriaValueResult[] {
     const normalized = sanitizeText(text);
     const cyphers = getEnabledCyphers(settings);
     return cyphers.map(cypher => ({
@@ -97,7 +97,7 @@
     }));
   }
 
-  function interestingSetFromSettings(settings) {
+  function interestingSetFromSettings(settings: GematriaSettings): Set<number> {
     return new Set(parseInterestingValues(settings.interestingValues));
   }
 
@@ -110,5 +110,5 @@
     getEnabledCyphers,
   };
 
-  globalThis.GematriaPlugin = namespace;
+  (globalThis as any).GematriaPlugin = namespace as GematriaPluginNamespace;
 })();

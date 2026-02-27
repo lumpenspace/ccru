@@ -11,6 +11,7 @@ import { ALL_DEMONS } from '../../data/demons'
 import { REGION_CLR, TC_EDGES, TC_CURRENTS, TC_SYZYGIES } from '../../lib/constants'
 import { curveAway, syzMidBiased, syzTrianglePoints, midpoint } from '../../lib/geometry'
 import { formatXenotationForDisplay } from '../../lib/xenotation'
+import { plexExpr } from '../../lib/numogram'
 
 interface ProjectionProps {
   layout: Layout
@@ -48,24 +49,7 @@ export const Projection = React.memo(function Projection({
   const getCurrentDestZone = (from: number, to: number, name: string) => (
     name === 'Warp' || name === 'Plex' ? Math.min(from, 9 - from) : to
   )
-  const plexExpr = (cum: number): string | null => {
-    if (cum < 10) return null
-    let current = cum
-    let expr = ''
-    let first = true
-    while (current >= 10) {
-      const digits = String(current).split('').map(d => Number(d))
-      const sum = digits.reduce((acc, d) => acc + d, 0)
-      if (first) {
-        expr = `${digits.join('+')}=${sum}`
-        first = false
-      } else {
-        expr += `=${sum}`
-      }
-      current = sum
-    }
-    return expr
-  }
+  // plexExpr imported from ../../lib/numogram
   const pathTerminals = (d: string): { start: Pos; end: Pos } | null => {
     const nums = d.match(/-?\d*\.?\d+/g)
     if (!nums || nums.length < 4) return null

@@ -1,14 +1,26 @@
 (() => {
-  const namespace = globalThis.GematriaPlugin || {};
+  const namespace = (globalThis as any).GematriaPlugin || {} as Partial<GematriaPluginNamespace>;
 
-  function createElement(tagName, className, text) {
+  function createElement<K extends keyof HTMLElementTagNameMap>(
+    tagName: K,
+    className?: string,
+    text?: string
+  ): HTMLElementTagNameMap[K] {
     const element = document.createElement(tagName);
     if (className) element.className = className;
     if (typeof text === 'string') element.textContent = text;
     return element;
   }
 
-  function createPanel({ title, subtitle, className = '', collapsible = false, defaultOpen = true } = {}) {
+  interface PanelOptions {
+    title?: string;
+    subtitle?: string;
+    className?: string;
+    collapsible?: boolean;
+    defaultOpen?: boolean;
+  }
+
+  function createPanel({ title, subtitle, className = '', collapsible = false, defaultOpen = true }: PanelOptions = {}): GematriaUiPanel {
     const root = createElement('section', `gm-cyber-panel ${className}`.trim());
     const head = createElement('header', 'gm-cyber-panel-head');
     const headMain = createElement('div', 'gm-cyber-panel-head-main');
@@ -23,7 +35,7 @@
     head.appendChild(headMain);
 
     let open = defaultOpen !== false;
-    let toggleButton = null;
+    let toggleButton: HTMLButtonElement | null = null;
     const body = createElement('div', 'gm-cyber-panel-body');
     if (collapsible) {
       root.classList.add('gm-cyber-panel-collapsible');
@@ -32,7 +44,7 @@
       head.appendChild(toggleButton);
     }
 
-    function syncOpenState() {
+    function syncOpenState(): void {
       if (!collapsible) return;
       root.classList.toggle('gm-cyber-panel-collapsed', !open);
       if (toggleButton) {
@@ -42,7 +54,7 @@
       }
     }
 
-    function setOpen(nextOpen) {
+    function setOpen(nextOpen: boolean): void {
       open = nextOpen === true;
       syncOpenState();
     }
@@ -68,10 +80,24 @@
     };
   }
 
-  function createButton({ label, className = '', type = 'button' } = {}) {
+  interface ButtonOptions {
+    label?: string;
+    className?: string;
+    type?: string;
+  }
+
+  function createButton({ label, className = '', type = 'button' }: ButtonOptions = {}): HTMLButtonElement {
     const button = createElement('button', `gm-cyber-button ${className}`.trim(), label || 'Button');
-    button.type = type;
+    button.type = type as HTMLButtonElement['type'];
     return button;
+  }
+
+  interface TextAreaOptions {
+    className?: string;
+    rows?: number;
+    placeholder?: string;
+    spellcheck?: boolean;
+    value?: string;
   }
 
   function createTextArea({
@@ -80,7 +106,7 @@
     placeholder = '',
     spellcheck = false,
     value = '',
-  } = {}) {
+  }: TextAreaOptions = {}): HTMLTextAreaElement {
     const textarea = createElement('textarea', className.trim());
     textarea.rows = Number.isInteger(rows) ? rows : 3;
     textarea.placeholder = `${placeholder || ''}`;
@@ -89,7 +115,7 @@
     return textarea;
   }
 
-  function createBadge({ label, value, accent, highlight = false, className = '' } = {}) {
+  function createBadge({ label, value, accent, highlight = false, className = '' }: GematriaUiBadgeOptions = {}): HTMLSpanElement {
     const badge = createElement(
       'span',
       `gm-cyber-badge ${highlight ? 'gm-cyber-badge-hit' : ''} ${className}`.trim(),
@@ -99,7 +125,13 @@
     return badge;
   }
 
-  function createCheckboxRow({ label, description, checked = false } = {}) {
+  interface CheckboxRowOptions {
+    label?: string;
+    description?: string;
+    checked?: boolean;
+  }
+
+  function createCheckboxRow({ label, description, checked = false }: CheckboxRowOptions = {}): GematriaUiCheckboxResult {
     const row = createElement('label', 'gm-cyber-checkbox-row');
     const input = createElement('input', 'gm-cyber-checkbox-input');
     input.type = 'checkbox';
@@ -120,6 +152,16 @@
     return { row, input, textWrap, labelEl };
   }
 
+  interface SelectionRowOptions {
+    label?: string;
+    description?: string;
+    checked?: boolean;
+    accent?: string;
+    popupTitle?: string;
+    popupText?: string;
+    popupBadges?: GematriaUiBadgeOptions[];
+  }
+
   function createSelectionRowWithPopup({
     label,
     description,
@@ -128,7 +170,7 @@
     popupTitle,
     popupText,
     popupBadges = [],
-  } = {}) {
+  }: SelectionRowOptions = {}): GematriaUiSelectionRowResult {
     const root = createElement('div', 'gm-cyber-select-wrap');
     if (accent) root.style.setProperty('--gm-accent', accent);
     const row = createElement('label', 'gm-cyber-select-row');
@@ -186,6 +228,16 @@
     return { root, row, input, textWrap, labelEl };
   }
 
+  interface CypherSelectionRowOptions {
+    label?: string;
+    icon?: string;
+    checked?: boolean;
+    accent?: string;
+    popupTitle?: string;
+    popupText?: string;
+    popupBadges?: GematriaUiBadgeOptions[];
+  }
+
   function createCypherSelectionRowWithPopup({
     label,
     icon,
@@ -194,7 +246,7 @@
     popupTitle,
     popupText,
     popupBadges = [],
-  } = {}) {
+  }: CypherSelectionRowOptions = {}): { root: HTMLDivElement; row: HTMLLabelElement; input: HTMLInputElement; labelEl: HTMLSpanElement } {
     const root = createElement('div', 'gm-cyber-cipher-wrap');
     if (accent) root.style.setProperty('--gm-accent', accent);
 
@@ -214,7 +266,7 @@
     row.appendChild(dotEl);
     root.appendChild(row);
 
-    function syncCheckedState() {
+    function syncCheckedState(): void {
       root.classList.toggle('gm-cyber-cipher-checked', input.checked);
     }
     syncCheckedState();
@@ -262,5 +314,5 @@
     createCypherSelectionRowWithPopup,
   };
 
-  globalThis.GematriaPlugin = namespace;
+  (globalThis as any).GematriaPlugin = namespace as GematriaPluginNamespace;
 })();

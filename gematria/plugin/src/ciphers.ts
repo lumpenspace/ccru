@@ -4,40 +4,40 @@
   const NUMERIC_QWERTY = `1234567890${QWERTY}`;
   const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-  const ALPHANUM_PRIMES = [
+  const ALPHANUM_PRIMES: number[] = [
     1, 2, 3, 5, 7, 11, 13, 17, 19, 23,
     29, 31, 37, 41, 43, 47, 53, 59, 61, 67,
     71, 73, 79, 83, 89, 97, 101, 103, 107, 109,
     113, 127, 131, 137, 139, 149,
   ];
 
-  const ALPHANUM_SYNX = [
+  const ALPHANUM_SYNX: number[] = [
     1, 2, 3, 4, 5, 6, 7, 9, 10, 12,
     14, 15, 18, 20, 21, 28, 30, 35, 36, 42,
     45, 60, 63, 70, 84, 90, 105, 126, 140, 180,
     210, 252, 315, 420, 630, 1260,
   ];
 
-  const ALPHANUM_ARCHAIC = [
+  const ALPHANUM_ARCHAIC: number[] = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
     10, 11, 12, 13, 14, 15, 16, 17, 18, 18,
     19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
     29, 29, 30, 31, 32, 33,
   ];
 
-  function rangeValues(size, start = 0) {
+  function rangeValues(size: number, start = 0): number[] {
     return Array.from({ length: size }, (_, index) => index + start);
   }
 
-  function squares(size) {
+  function squares(size: number): number[] {
     return Array.from({ length: size }, (_, index) => index * index);
   }
 
-  function trigonal(size) {
+  function trigonal(size: number): number[] {
     return Array.from({ length: size }, (_, index) => (index * (index + 1)) / 2);
   }
 
-  const ciphers = [
+  const ciphers: GematriaCipher[] = [
     {
       id: 'alphanumeric-qabbala',
       name: 'Alphanumeric Qabbala',
@@ -180,7 +180,7 @@
     },
   ];
 
-  const namespace = globalThis.GematriaPlugin || {};
+  const namespace: Partial<GematriaPluginNamespace> = (globalThis as any).GematriaPlugin || {};
   namespace.ciphers = ciphers;
   namespace.defaultSettings = {
     enabledCypherIds: ['alphanumeric-qabbala', 'synx', 'qwerty'],
@@ -192,5 +192,5 @@
     savedEntries: 'gematria_saved_entries',
   };
 
-  globalThis.GematriaPlugin = namespace;
+  (globalThis as any).GematriaPlugin = namespace as GematriaPluginNamespace;
 })();

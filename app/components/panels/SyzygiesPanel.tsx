@@ -4,7 +4,7 @@ import React from 'react'
 import type { HoverInfo } from '../../data/types'
 import { ZONE_CLR } from '../../data/zones'
 import { SYZYGIES } from '../../data/syzygies'
-import { SelectableListPanel, type SelectableListDisplayProps } from './shared'
+import { SelectableListPanel, PanelColorBar, type SelectableListDisplayProps } from './shared'
 
 interface SyzygiesPanelProps {
   selZones: Set<number>
@@ -24,8 +24,8 @@ export function SyzygiesPanel({ selZones, hlZones, onToggleSyzygyPair, onHoverIn
   const SyzygyItemDisplay = ({ item }: SelectableListDisplayProps<SyzygyItem>) => (
     <>
       <div className="flex gap-0.5 flex-shrink-0">
-        <div className="w-1 h-3 transition-all" style={{ background: item.isHighlighted ? ZONE_CLR[item.a] : `${ZONE_CLR[item.a]}44` }} />
-        <div className="w-1 h-3 transition-all" style={{ background: item.isHighlighted ? ZONE_CLR[item.b] : `${ZONE_CLR[item.b]}44` }} />
+        <PanelColorBar color={ZONE_CLR[item.a]} active={item.isHighlighted} />
+        <PanelColorBar color={ZONE_CLR[item.b]} active={item.isHighlighted} />
       </div>
       <span className="text-gray-400 text-[10px]">{item.a}::{item.b}</span>
       <span className="text-gray-600 text-[8px] italic">{item.demon}</span>

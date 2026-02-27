@@ -148,10 +148,10 @@ export function CyberPanel({
                 <div className="h-[1px] w-3 bg-[#10ff50]" />
               </div>
             ) : undefined}
-            rightSlot={(headerRight || (showPanelToggle && collapseDirection !== 'side')) ? (
+            rightSlot={(headerRight || showPanelToggle) ? (
               <div className="flex items-center gap-1" onMouseDown={e => e.stopPropagation()}>
                 {headerRight}
-                {showPanelToggle && collapseDirection !== 'side' && (
+                {showPanelToggle && (
                   <button
                     onClick={e => {
                       e.stopPropagation()

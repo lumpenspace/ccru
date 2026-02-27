@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Panel as SplitPanel, PanelGroup as SplitPanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { LiveEditor, LiveError, LivePreview, LiveProvider } from 'react-live'
+import { Highlight, themes } from 'prism-react-renderer'
 
 import { CypherHoverText } from './cyphers/CypherHoverText'
 import { CyberButton } from './ui/CyberButton'
@@ -21,6 +22,12 @@ import { CyberStackGroup } from './ui/CyberStackGroup'
 import { CyberTextArea } from './ui/CyberTextArea'
 import { Figure } from './ui/Figure'
 import { GlitchText } from './ui/GlitchText'
+import { GlitchTransition } from './ui/GlitchTransition'
+import { StatusDot } from './ui/StatusDot'
+import { DataRow } from './ui/DataRow'
+import { NeonDivider } from './ui/NeonDivider'
+import { SectionFrame } from './ui/SectionFrame'
+import { CyberCodeBlock } from './ui/CyberCodeBlock'
 import { CCRU_CIPHERS } from '../cyphers/ccruCiphers'
 
 const SAMPLE_MD = `The numogram bends language into sequences and returns hidden arithmetic.
@@ -115,6 +122,61 @@ const CONTAINERS_CODE = `(
     </CyberGridGroup>
   </>
 )`
+
+const DATA_DISPLAY_CODE = `(
+  <div className="space-y-2">
+    <div className="flex items-center gap-3">
+      <span className="flex items-center gap-1.5">
+        <StatusDot color="#10ff50" />
+        <span className="text-xs text-gray-300">Online</span>
+      </span>
+      <span className="flex items-center gap-1.5">
+        <StatusDot color="#facc15" pulse={false} />
+        <span className="text-xs text-gray-300">Idle</span>
+      </span>
+      <span className="flex items-center gap-1.5">
+        <StatusDot color="#fb7185" />
+        <span className="text-xs text-gray-300">Alert</span>
+      </span>
+    </div>
+    <NeonDivider />
+    <SectionFrame title="Gate Analysis" color="#22d3ee">
+      <DataRow label="Zone" value="9::0" color="#22d3ee" />
+      <DataRow label="Current" value="Gt-35" />
+      <DataRow label="Plex" value="5+7" />
+    </SectionFrame>
+    <NeonDivider color="#facc15" />
+    <SectionFrame title="Summary">
+      <DataRow label="Active" value="3/9" />
+      <DataRow label="Status" value="nominal" />
+    </SectionFrame>
+  </div>
+)`
+
+const GLITCH_CODE = `(
+  <div className="space-y-4">
+    <GlitchText text="SIGNAL ACQUIRED" color="#10ff50" />
+    <GlitchText text="WARNING DRIFT DETECTED" color="#fb7185" />
+    <div className="flex items-center gap-3 mt-2">
+      <span className="text-[9px] uppercase tracking-[0.15em] text-gray-600">Value</span>
+      <GlitchTransition value={311} className="text-lg font-bold text-[#facc15]" />
+    </div>
+  </div>
+)`
+
+const CODEBLOCK_CODE = `<CyberCodeBlock
+  language="typescript"
+  code={\`function calcGematria(
+  phrase: string,
+  cipher: Map<string, number>
+): number {
+  let sum = 0
+  for (const char of phrase.toLowerCase()) {
+    sum += cipher.get(char) ?? 0
+  }
+  return sum
+}\`}
+/>`
 
 const CYPHER_PROPS = `type HoverCypher = {
   id?: string
@@ -255,6 +317,45 @@ interface CyberPanelProps {
   children: React.ReactNode
 }`
 
+const DATA_DISPLAY_PROPS = `type StatusDotProps = {
+  color: string
+  pulse?: boolean          // default true
+  className?: string
+}
+
+type DataRowProps = {
+  label: string
+  value: string
+  color?: string           // default '#10ff50'
+}
+
+type NeonDividerProps = {
+  color?: string           // default '#10ff50'
+}
+
+type SectionFrameProps = {
+  title?: string
+  color?: string           // default '#10ff50'
+  children: React.ReactNode
+}`
+
+const GLITCH_PROPS = `type GlitchTextProps = {
+  text: string
+  color?: string           // default '#10ff50'
+  className?: string
+}
+
+type GlitchTransitionProps = {
+  value: string | number   // glitches on change
+  className?: string
+}`
+
+const CODEBLOCK_PROPS = `type CyberCodeBlockProps = {
+  code: string
+  language?: string        // default 'tsx'
+  className?: string
+}`
+
 type SplitShowcaseCardProps = {
   splitVertical: boolean
   code: string
@@ -284,17 +385,33 @@ function SplitShowcaseCard({
             <div className="h-full overflow-auto p-3">
               <button
                 type="button"
-                className="border border-[#334155] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-gray-300"
+                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] text-gray-500 hover:text-gray-300 transition-colors"
                 onClick={() => setPropsOpen(v => !v)}
               >
-                Props {propsOpen ? '▾' : '▸'}
+                <span className="w-3 text-center text-[#10ff50]/60">{propsOpen ? '▾' : '▸'}</span>
+                <span>Props</span>
               </button>
               {propsOpen && (
-                <pre className="mt-2 overflow-auto border border-[#1e293b] bg-[#050a11] p-2 text-[11px] leading-5 text-gray-300">
-                  <code>{propsTypes}</code>
-                </pre>
+                <Highlight code={propsTypes.trim()} language="typescript" theme={themes.vsDark}>
+                  {({ className: hlClass, style, tokens, getLineProps, getTokenProps }) => (
+                    <pre
+                      className={`mt-1.5 overflow-auto border border-[#1e293b] bg-[#050a11] py-2 pl-1 pr-2 text-[11px] leading-5 ${hlClass}`}
+                      style={{ ...style, background: 'transparent' }}
+                    >
+                      {tokens.map((line, i) => (
+                        <div key={i} {...getLineProps({ line })}>
+                          <span className="inline-block w-5 text-right mr-2 select-none text-[10px]" style={{ color: '#334155' }}>{i + 1}</span>
+                          {line.map((token, j) => (
+                            <span key={j} {...getTokenProps({ token })} />
+                          ))}
+                        </div>
+                      ))}
+                    </pre>
+                  )}
+                </Highlight>
               )}
-              <div className={`mt-2 overflow-auto border border-[#1e293b] bg-[#050a11] p-2 ${codeHeightClassName}`}>
+              <div className="mt-2.5 mb-1 text-[9px] uppercase tracking-[0.15em] text-gray-600">Editor</div>
+              <div className={`overflow-auto border border-[#1e293b] bg-[#050a11] p-2 ${codeHeightClassName}`}>
                 <LiveEditor
                   onChange={onCodeChange}
                   style={{
@@ -310,10 +427,11 @@ function SplitShowcaseCard({
             </div>
           </SplitPanel>
           <PanelResizeHandle
-            className={splitVertical ? 'h-2 bg-[#1e293b] hover:bg-[#10ff50]/40' : 'w-2 bg-[#1e293b] hover:bg-[#10ff50]/40'}
+            className={`${splitVertical ? 'h-1.5' : 'w-1.5'} bg-[#1e293b] hover:bg-[#10ff50]/40 transition-colors`}
           />
           <SplitPanel defaultSize={54} minSize={30}>
             <div className="h-full overflow-auto p-3">
+              <div className="mb-1 text-[9px] uppercase tracking-[0.15em] text-gray-600">Preview</div>
               <div className="border border-[#1e293b] bg-[#050a11] p-3">
                 <LivePreview />
               </div>
@@ -336,6 +454,9 @@ export default function ComponentsShowcasePage() {
   const [pillCode, setPillCode] = useState(PILL_CODE)
   const [figureCode, setFigureCode] = useState(FIGURE_CODE)
   const [containersCode, setContainersCode] = useState(CONTAINERS_CODE)
+  const [dataDisplayCode, setDataDisplayCode] = useState(DATA_DISPLAY_CODE)
+  const [glitchCode, setGlitchCode] = useState(GLITCH_CODE)
+  const [codeBlockCode, setCodeBlockCode] = useState(CODEBLOCK_CODE)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -352,7 +473,7 @@ export default function ComponentsShowcasePage() {
       <div className="mx-auto w-full max-w-[1160px] space-y-6">
         <CyberPageHeader
           title="Components Showcase"
-          description="Extracted primitives from numogram with cypher hover component demo"
+          description="Live-editable component library with data display, glitch effects, panels, inputs, and cypher hover"
           links={[
             { href: '/', label: 'Home' },
             { href: '/numogram', label: 'Numogram' },
@@ -443,6 +564,42 @@ export default function ComponentsShowcasePage() {
             propsTypes={CONTAINERS_PROPS}
             heightClassName="h-[500px]"
             codeHeightClassName="h-[190px]"
+          />
+        </CyberCardContainer>
+
+        <CyberCardContainer title="Status + Data Display" collapsible>
+          <SplitShowcaseCard
+            splitVertical={splitVertical}
+            code={dataDisplayCode}
+            onCodeChange={setDataDisplayCode}
+            scope={{ StatusDot, DataRow, NeonDivider, SectionFrame }}
+            propsTypes={DATA_DISPLAY_PROPS}
+            heightClassName="h-[500px]"
+            codeHeightClassName="h-[240px]"
+          />
+        </CyberCardContainer>
+
+        <CyberCardContainer title="Glitch Effects" collapsible>
+          <SplitShowcaseCard
+            splitVertical={splitVertical}
+            code={glitchCode}
+            onCodeChange={setGlitchCode}
+            scope={{ GlitchText, GlitchTransition }}
+            propsTypes={GLITCH_PROPS}
+            heightClassName="h-[400px]"
+            codeHeightClassName="h-[180px]"
+          />
+        </CyberCardContainer>
+
+        <CyberCardContainer title="Code Block" collapsible>
+          <SplitShowcaseCard
+            splitVertical={splitVertical}
+            code={codeBlockCode}
+            onCodeChange={setCodeBlockCode}
+            scope={{ CyberCodeBlock }}
+            propsTypes={CODEBLOCK_PROPS}
+            heightClassName="h-[420px]"
+            codeHeightClassName="h-[200px]"
           />
         </CyberCardContainer>
       </div>

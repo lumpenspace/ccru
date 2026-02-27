@@ -1,10 +1,23 @@
+interface BadgeValue {
+  id: string;
+  shortName: string;
+  icon: string;
+  value: number;
+}
+
+interface SelectionState {
+  phrase: string;
+  values: BadgeValue[];
+  pageUrl: string;
+}
+
 const CONTEXT_MENU_ID = 'gematria-calc-selection';
 const DEFAULT_ACTION_TITLE = 'Gematria';
 const BADGE_BG_COLOR = '#0b121d';
 const BADGE_TEXT_COLOR = '#10ff50';
-const selectionStateByTab = new Map();
+const selectionStateByTab = new Map<number, SelectionState>();
 
-function sanitizeSelectionValues(raw) {
+function sanitizeSelectionValues(raw: unknown): BadgeValue[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter(row => row && Number.isFinite(Number(row.value)))
@@ -16,7 +29,7 @@ function sanitizeSelectionValues(raw) {
     }));
 }
 
-function formatBadgeText(values) {
+function formatBadgeText(values: BadgeValue[]): string {
   if (!Array.isArray(values) || values.length === 0) return '';
   const joined = values.map(row => `${row.value}`).join('/');
   if (joined.length <= 4) return joined;
@@ -27,7 +40,7 @@ function formatBadgeText(values) {
   return `${first.slice(0, 3)}+`;
 }
 
-function formatActionTitle(selection) {
+function formatActionTitle(selection: SelectionState | null): string {
   if (!selection || !selection.phrase || !Array.isArray(selection.values) || selection.values.length === 0) {
     return DEFAULT_ACTION_TITLE;
   }
@@ -39,13 +52,13 @@ function formatActionTitle(selection) {
   return `${phrase}\n${values}`;
 }
 
-function clearTabBadge(tabId) {
+function clearTabBadge(tabId: number): void {
   if (!Number.isInteger(tabId)) return;
   chrome.action.setBadgeText({ tabId, text: '' });
   chrome.action.setTitle({ tabId, title: DEFAULT_ACTION_TITLE });
 }
 
-function applyTabBadge(tabId, selection) {
+function applyTabBadge(tabId: number, selection: SelectionState): void {
   if (!Number.isInteger(tabId)) return;
 
   const badgeText = formatBadgeText(selection.values);
@@ -62,7 +75,7 @@ function applyTabBadge(tabId, selection) {
   chrome.action.setTitle({ tabId, title: formatActionTitle(selection) });
 }
 
-function createContextMenu() {
+function createContextMenu(): void {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: CONTEXT_MENU_ID,
@@ -106,7 +119,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
 
-    const selection = { phrase, values, pageUrl: `${message.pageUrl || ''}` };
+    const selection: SelectionState = { phrase, values, pageUrl: `${message.pageUrl || ''}` };
     selectionStateByTab.set(tabId, selection);
     applyTabBadge(tabId, selection);
     return;

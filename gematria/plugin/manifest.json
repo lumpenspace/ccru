@@ -6,7 +6,7 @@
   "permissions": ["storage", "contextMenus", "tabs", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "src/background.js"
+    "service_worker": "dist/src/background.js"
   },
   "action": {
     "default_title": "Gematria",
@@ -16,7 +16,12 @@
     {
       "matches": ["<all_urls>"],
       "css": ["src/cyber-ui.css"],
-      "js": ["src/ciphers.js", "src/gematria.js", "src/cyber-ui.js", "src/content.js"],
+      "js": [
+        "dist/src/ciphers.js",
+        "dist/src/gematria.js",
+        "dist/src/cyber-ui.js",
+        "dist/src/content.js"
+      ],
       "run_at": "document_idle"
     }
   ]

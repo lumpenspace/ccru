@@ -41,7 +41,7 @@ export function GlitchText({ text, color = '#10ff50', className = '' }: GlitchTe
 
   return (
     <span
-      className={`ui-glitch-text font-bold uppercase tracking-[0.12em] ${className}`}
+      className={`ui-glitch-text font-bold uppercase tracking-[0.12em] text-xs ${className}`}
       style={{
         color,
         textShadow: `0 0 8px ${color}66, 0 0 20px ${color}22`,

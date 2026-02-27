@@ -1,7 +1,7 @@
 (() => {
-  if (!globalThis.chrome || !chrome.storage || !globalThis.GematriaPlugin) return;
+  if (!(globalThis as any).chrome || !chrome.storage || !(globalThis as any).GematriaPlugin) return;
 
-  const namespace = globalThis.GematriaPlugin;
+  const namespace = (globalThis as any).GematriaPlugin;
   const { storageKeys, defaultSettings, utils, ui } = namespace;
 
   const TWITTER_HOST_PATTERN = /(^|\.)twitter\.com$|(^|\.)x\.com$/i;
@@ -293,14 +293,14 @@
     tweets.forEach(article => decorateTweet(article));
   }
 
-  function findAudienceNode(startNode) {
-    let node = startNode;
+  function findAudienceNode(startNode: Element | null): Element | null {
+    let node: Element | null = startNode;
     for (let depth = 0; depth < 10 && node; depth += 1) {
       const selectorMatch = node.querySelector('[data-testid="tweetAudienceSelector"]');
       if (selectorMatch) return selectorMatch;
 
       const buttonMatch = Array.from(node.querySelectorAll('button, [role="button"]')).find(candidate =>
-        /\beveryone\b/i.test(candidate.textContent || '')
+        /\beveryone\b/i.test((candidate as HTMLElement).textContent || '')
       );
       if (buttonMatch) return buttonMatch;
 
@@ -429,7 +429,7 @@
   }
 
   function getCurrentSelectionPhrase() {
-    const selectionText = globalThis.getSelection ? `${globalThis.getSelection()?.toString() || ''}` : '';
+    const selectionText = (globalThis as any).getSelection ? `${(globalThis as any).getSelection()?.toString() || ''}` : '';
     const normalized = utils.sanitizeText(selectionText);
     if (normalized) return normalized;
     return utils.sanitizeText(getTextInputSelectionText());
@@ -471,17 +471,17 @@
     }
   }
 
-  function scheduleSelectionSync(options = {}) {
+  function scheduleSelectionSync(options: { allowAutoPanel?: boolean; force?: boolean } = {}) {
     if (selectionRefreshHandle) {
       clearTimeout(selectionRefreshHandle);
     }
-    selectionRefreshHandle = setTimeout(() => {
+    selectionRefreshHandle = window.setTimeout(() => {
       selectionRefreshHandle = 0;
       syncSelectionState(options);
     }, 90);
   }
 
-  function showSelectionPanel(text, pageUrl, options = {}) {
+  function showSelectionPanel(text, pageUrl, options: { origin?: string; values?: GematriaValueResult[] } = {}) {
     const origin = options.origin || 'manual';
     const phrase = utils.sanitizeText(text);
     if (!phrase) return;

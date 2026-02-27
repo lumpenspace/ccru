@@ -1,6 +1,6 @@
 (() => {
-  const namespace = globalThis.GematriaPlugin;
-  if (!namespace || !namespace.ui || !globalThis.chrome || !chrome.storage) return;
+  const namespace = (globalThis as any).GematriaPlugin;
+  if (!namespace || !namespace.ui || !(globalThis as any).chrome || !chrome.storage) return;
 
   const { ciphers, storageKeys, defaultSettings, utils, ui } = namespace;
   const popupRoot = document.getElementById('popup-root');
@@ -194,7 +194,7 @@
     if (cached) applySelectionToEditor(cached, { forcePopulate });
     try {
       const response = await chrome.tabs.sendMessage(activeTab.id, { type: 'GEMATRIA_SELECTION_QUERY' });
-      const live = response && response.ok ? normalizeSelectionPayload(response) : null;
+      const live = response && (response as any).ok ? normalizeSelectionPayload(response) : null;
       applySelectionToEditor(live || cached || null, { forcePopulate });
     } catch {
       const fallback = await querySelectionViaScripting(activeTab.id);
