@@ -91,11 +91,7 @@
 
   function renderPhraseValues() {
     if (!selectedInputEl || !selectedValuesEl) return;
-    const phrase = utils.sanitizeText(selectedInputEl.value || '');
-    if (!phrase) {
-      selectedValuesEl.innerHTML = '<span class="gm-cyber-muted">Values appear here as you type.</span>';
-      return;
-    }
+    const phrase = selectedInputEl.value || '';
     const values = utils.calcValuesForText(phrase, settings);
     selectedValuesEl.innerHTML = renderValuesBadges(values);
   }
