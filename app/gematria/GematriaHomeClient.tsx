@@ -67,6 +67,7 @@ export default function GematriaHomeClient() {
           className="mb-5"
           icon="/gematria-logo.svg"
           title="Gematria"
+          titleHref="/gematria"
           description={installed ? 'Saved entries from extension storage' : 'Chrome plugin setup and saved phrase workflow'}
           actions={<HomeLink href="/gematria/plugin" label="Docs" boxed={false} />}
         />

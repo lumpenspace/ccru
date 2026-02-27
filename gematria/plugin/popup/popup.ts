@@ -5,6 +5,7 @@
   const { ciphers, storageKeys, defaultSettings, utils, ui } = namespace;
   const popupRoot = document.getElementById('popup-root');
   if (!popupRoot) return;
+  const SAVED_ITEMS_URL = 'https://qliphoth.systems/gematria';
 
   let settings = {
     enabledCypherIds: [...defaultSettings.enabledCypherIds],
@@ -400,26 +401,7 @@
         await pendingSavePromise;
       } catch {}
     }
-
-    let targetUrl = 'https://num.qliphoth.systems/gematria';
-
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const active = tabs[0];
-      if (active && active.url) {
-        const base = new URL(active.url);
-        const host = base.hostname.toLowerCase();
-        const localHost = host === 'localhost' || host === '127.0.0.1';
-        const appHost = host === 'num.qliphoth.systems';
-        if ((base.protocol === 'http:' || base.protocol === 'https:') && (localHost || appHost)) {
-          targetUrl = `${base.origin}/gematria`;
-        }
-      }
-    } catch {
-      targetUrl = 'https://num.qliphoth.systems/gematria';
-    }
-
-    await chrome.tabs.create({ url: targetUrl });
+    await chrome.tabs.create({ url: SAVED_ITEMS_URL });
   }
 
   function mountUi() {

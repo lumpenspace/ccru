@@ -100,6 +100,7 @@ export default function GematriaPluginClient() {
           className="mb-5"
           icon="/gematria-logo.svg"
           title="Gematria Chrome Plugin"
+          titleHref="/gematria"
           description={
             installed
               ? `v${PLUGIN_VERSION} — installed`

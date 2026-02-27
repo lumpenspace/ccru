@@ -606,6 +606,7 @@ export default function ComponentsShowcasePage() {
         <CyberPageHeader
           icon="/icon.svg"
           title={<GlitchText text="Components Showcase" className="text-[9px] tracking-[0.28em]" />}
+          titleHref="/components"
           description="Live-editable component library"
         />
 

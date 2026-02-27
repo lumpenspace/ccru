@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import Link from 'next/link'
 import { HomeLink } from './HomeLink'
 
 type CyberPageHeaderProps = {
@@ -8,6 +9,7 @@ type CyberPageHeaderProps = {
   description?: ReactNode
   icon?: string
   className?: string
+  titleHref?: string
   homeHref?: string
   homeLabel?: string
   showHomeLink?: boolean
@@ -19,6 +21,7 @@ export function CyberPageHeader({
   description,
   icon,
   className = '',
+  titleHref,
   homeHref = '/',
   homeLabel = 'Home',
   showHomeLink = true,
@@ -46,23 +49,43 @@ export function CyberPageHeader({
             'linear-gradient(180deg, rgba(8,12,20,0.82) 0%, rgba(4,7,13,0.9) 100%)',
         }}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          {icon && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={icon} alt="" className="w-4 h-4" style={{ filter: 'drop-shadow(0 0 3px rgba(16,255,80,0.4))' }} />
-          )}
-          <span
-            className="text-[9px] tracking-[0.28em] uppercase whitespace-nowrap"
-            style={{ color: '#10ff50', textShadow: '0 0 6px rgba(16,255,80,0.3)' }}
-          >
-            {title}
-          </span>
-          {description && (
-            <span className="text-[9px] tracking-[0.06em] text-gray-500 truncate hidden sm:inline">
-              {description}
+        {titleHref ? (
+          <Link href={titleHref} className="flex items-center gap-2 min-w-0">
+            {icon && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={icon} alt="" className="w-4 h-4" style={{ filter: 'drop-shadow(0 0 3px rgba(16,255,80,0.4))' }} />
+            )}
+            <span
+              className="text-[9px] tracking-[0.28em] uppercase whitespace-nowrap"
+              style={{ color: '#10ff50', textShadow: '0 0 6px rgba(16,255,80,0.3)' }}
+            >
+              {title}
             </span>
-          )}
-        </div>
+            {description && (
+              <span className="text-[9px] tracking-[0.06em] text-gray-500 truncate hidden sm:inline">
+                {description}
+              </span>
+            )}
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2 min-w-0">
+            {icon && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={icon} alt="" className="w-4 h-4" style={{ filter: 'drop-shadow(0 0 3px rgba(16,255,80,0.4))' }} />
+            )}
+            <span
+              className="text-[9px] tracking-[0.28em] uppercase whitespace-nowrap"
+              style={{ color: '#10ff50', textShadow: '0 0 6px rgba(16,255,80,0.3)' }}
+            >
+              {title}
+            </span>
+            {description && (
+              <span className="text-[9px] tracking-[0.06em] text-gray-500 truncate hidden sm:inline">
+                {description}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {actions && (
         <div

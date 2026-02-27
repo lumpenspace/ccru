@@ -146,6 +146,7 @@ export default function CyphersClient() {
         <CyberPageHeader
           className="mb-5"
           title="Cifers"
+          titleHref="/cyphers"
           description="Live CCRU gematria calculator"
         />
 

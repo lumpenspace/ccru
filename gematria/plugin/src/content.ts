@@ -11,6 +11,7 @@
 
   const TWITTER_HOST_PATTERN = /(^|\.)twitter\.com$|(^|\.)x\.com$/i;
   const SAVED_PATH_PATTERN = /^\/gematria(\/saved)?\/?$/i;
+  const SAVED_ITEMS_URL = 'https://qliphoth.systems/gematria';
 
   const TWEET_CARD_CLASS = 'gm-tweet-name-widget';
   const TWEET_OVERLAY_CLASS = 'gm-tweet-hover-overlay';
@@ -194,7 +195,7 @@
       });
 
       const savedLink = document.createElement('a');
-      savedLink.href = '/gematria';
+      savedLink.href = SAVED_ITEMS_URL;
       savedLink.textContent = 'View saved items';
       savedLink.className = saveButton.className;
       savedLink.classList.add('gm-btn-saved-link');
@@ -652,7 +653,7 @@
         link: pageUrl || location.href,
       });
       const link = document.createElement('a');
-      link.href = '/gematria';
+      link.href = SAVED_ITEMS_URL;
       link.textContent = 'View saved items';
       link.className = saveButton.className;
       link.classList.add('gm-btn-saved-link');

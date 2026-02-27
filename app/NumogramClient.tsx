@@ -1737,6 +1737,7 @@ export default function NumogramPage() {
         <CyberPageHeader
           icon="/numogram-logo.svg"
           title="Numogram"
+          titleHref="/numogram"
           description="Decimal Labyrinth"
           actions={(
             <div className="flex items-center gap-1">
