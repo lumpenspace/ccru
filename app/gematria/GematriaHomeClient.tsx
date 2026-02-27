@@ -52,6 +52,13 @@ export default function GematriaHomeClient() {
   const navigate = useGlitchNavigate()
   const installed = usePluginInstalled()
   const [pluginSetupClosed, setPluginSetupClosed] = useState<boolean>(() => readPluginSetupClosedState())
+  const shouldShowPluginSetup = installed !== true || !pluginSetupClosed
+
+  useEffect(() => {
+    if (installed !== false) return
+    savePluginSetupClosedState(false)
+    setPluginSetupClosed(false)
+  }, [installed])
 
   return (
     <main className="min-h-screen bg-[#05070d] text-gray-200 font-mono">
@@ -65,7 +72,7 @@ export default function GematriaHomeClient() {
         />
 
         <section className="space-y-4">
-          {!pluginSetupClosed && (
+          {shouldShowPluginSetup && (
             <CyberPanel
               id="gematria-plugin"
               title="Chrome Plugin"
