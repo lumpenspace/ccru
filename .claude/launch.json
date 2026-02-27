@@ -4,8 +4,8 @@
     {
       "name": "nextjs-dev",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["dev"],
-      "port": 3000
+      "runtimeArgs": ["dev", "--port", "3007"],
+      "port": 3007
     }
   ]
 }

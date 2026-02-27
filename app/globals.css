@@ -8,6 +8,34 @@ body {
   min-height: 100%;
 }
 
+/* Cyberpunk scrollbar — thin neon track */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 255, 80, 0.25) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 255, 80, 0.2);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 255, 80, 0.45);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 body {
   overflow-x: hidden;
   background: #060609;
