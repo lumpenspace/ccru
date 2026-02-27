@@ -8,6 +8,7 @@ import { CyberPageHeader } from '../components/ui/CyberPageHeader'
 import { CyberPanel } from '../components/ui/CyberPanel'
 import { HomeLink } from '../components/ui/HomeLink'
 import { useGlitchNavigate } from '../hooks/useGlitchNavigate'
+import { PLUGIN_VERSION, ZIP_PATH } from './plugin/zipInfo'
 
 const PLUGIN_SETUP_CLOSED_KEY = 'gematria_plugin_setup_closed'
 
@@ -46,6 +47,13 @@ function usePluginInstalled() {
   }, [])
 
   return installed
+}
+
+function handleDownload() {
+  const a = document.createElement('a')
+  a.href = ZIP_PATH
+  a.download = `ccru-gematria-plugin-v${PLUGIN_VERSION}.zip`
+  a.click()
 }
 
 export default function GematriaHomeClient() {
@@ -91,7 +99,8 @@ export default function GematriaHomeClient() {
                     : <>Install and configure the Chrome plugin from <code>gematria/plugin</code>.</>}
                 </p>
                 <CyberButtonGroup>
-                  <CyberButton onClick={() => navigate('/gematria/plugin')}>Open Plugin Docs</CyberButton>
+                  <CyberButton onClick={handleDownload}>Download Plugin v{PLUGIN_VERSION}</CyberButton>
+                  <CyberButton onClick={() => navigate('/gematria/plugin')}>Install Guide</CyberButton>
                   {installed === true && (
                     <CyberButton
                       onClick={() => {
