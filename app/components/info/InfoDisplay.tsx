@@ -1,109 +1,20 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import type { HoverInfo } from '../../data/types'
 import { ZONE_CLR, ZONE_REGION, ZONE_META, ZONE_PARTICLE } from '../../data/zones'
 import { SYZYGIES } from '../../data/syzygies'
 import { GATE_LIST } from '../../data/gates'
 import { ALL_DEMONS } from '../../data/demons'
 import { REGION_CLR } from '../../lib/constants'
+import { plexExpr } from '../../lib/numogram'
 import { PanelGroup } from '../panels/PanelGroup'
 import type { PanelGroupItem } from '../panels/PanelGroup'
-
-// ── CP2077 Primitives ──────────────────────────────────────────
-
-function GlitchText({ text, color, size = 12 }: { text: string; color: string; size?: number }) {
-  const [display, setDisplay] = useState(text)
-  const chars = '!@#$%^&*()_+-=[]{}|;:<>?/~'
-  const frameRef = useRef<number>(0)
-
-  useEffect(() => {
-    const startTime = performance.now()
-    const duration = 200
-    const resolved = text.split('')
-
-    const animate = () => {
-      const elapsed = performance.now() - startTime
-      const progress = Math.min(1, elapsed / duration)
-      const resolvedCount = Math.floor(progress * resolved.length)
-
-      const result = resolved.map((char, i) => {
-        if (i < resolvedCount) return char
-        return chars[Math.floor(Math.random() * chars.length)]
-      }).join('')
-
-      setDisplay(result)
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate)
-      }
-    }
-    frameRef.current = requestAnimationFrame(animate)
-    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }
-  }, [text])
-
-  return (
-    <span
-      className="font-bold tracking-[0.15em] uppercase"
-      style={{
-        color,
-        fontSize: size,
-        textShadow: `0 0 8px ${color}66, 0 0 20px ${color}22`,
-      }}
-    >{display}</span>
-  )
-}
-
-function StatusDot({ color, pulse = true }: { color: string; pulse?: boolean }) {
-  return (
-    <span
-      className="inline-block w-[5px] h-[5px] rounded-full flex-shrink-0"
-      style={{
-        background: color,
-        boxShadow: `0 0 4px ${color}88`,
-        animation: pulse ? 'pulse-dot 2s ease-in-out infinite' : undefined,
-      }}
-    />
-  )
-}
-
-function DataRow({ label, value, color = '#10ff50' }: { label: string; value: string; color?: string }) {
-  return (
-    <div className="flex items-center gap-1.5 text-[9px] font-mono">
-      <div className="w-[2px] h-2.5 flex-shrink-0" style={{ background: `${color}66` }} />
-      <span className="tracking-[0.12em] uppercase text-gray-600 flex-shrink-0" style={{ fontSize: 8 }}>{label}</span>
-      <span className="flex-1 text-gray-700 overflow-hidden" style={{ fontSize: 7, letterSpacing: '0.15em' }}>
-        {'·'.repeat(30)}
-      </span>
-      <span style={{ color: `${color}cc` }}>{value}</span>
-    </div>
-  )
-}
-
-function NeonDivider({ color = '#10ff50' }: { color?: string }) {
-  return (
-    <div className="my-1.5 h-[1px] relative">
-      <div className="absolute inset-0" style={{
-        background: `linear-gradient(90deg, transparent 0%, ${color}44 20%, ${color}22 80%, transparent 100%)`,
-      }} />
-    </div>
-  )
-}
-
-function SectionFrame({ title, color = '#10ff50', children }: { title?: string; color?: string; children: React.ReactNode }) {
-  return (
-    <div className="relative pl-2 py-1">
-      {/* Corner marks */}
-      <div className="absolute top-0 left-0 w-2 h-[1px]" style={{ background: `${color}55` }} />
-      <div className="absolute top-0 left-0 w-[1px] h-2" style={{ background: `${color}55` }} />
-      <div className="absolute bottom-0 right-0 w-2 h-[1px]" style={{ background: `${color}22` }} />
-      <div className="absolute bottom-0 right-0 w-[1px] h-2" style={{ background: `${color}22` }} />
-      {title && (
-        <div className="text-[7px] tracking-[0.2em] uppercase mb-1" style={{ color: `${color}88` }}>{title}</div>
-      )}
-      {children}
-    </div>
-  )
-}
+import { GlitchText } from '../ui/GlitchText'
+import { StatusDot } from '../ui/StatusDot'
+import { DataRow } from '../ui/DataRow'
+import { NeonDivider } from '../ui/NeonDivider'
+import { SectionFrame } from '../ui/SectionFrame'
 
 // ── Zone Info ──────────────────────────────────────────────────
 
@@ -253,24 +164,7 @@ function CurrentInfo({ data }: { data: HoverInfo & { type: 'current' } }) {
 
 function GateInfo({ data }: { data: HoverInfo & { type: 'gate' } }) {
   const g = data.gate
-  const plexExpr = (() => {
-    if (g.cum < 10) return null
-    let current = g.cum
-    let expr = ''
-    let first = true
-    while (current >= 10) {
-      const digits = String(current).split('').map(d => Number(d))
-      const sum = digits.reduce((acc, d) => acc + d, 0)
-      if (first) {
-        expr = `${digits.join('+')}=${sum}`
-        first = false
-      } else {
-        expr += `=${sum}`
-      }
-      current = sum
-    }
-    return expr
-  })()
+  const plex = plexExpr(g.cum)
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
@@ -279,8 +173,8 @@ function GateInfo({ data }: { data: HoverInfo & { type: 'gate' } }) {
         <span className="text-[8px] text-gray-600 ml-auto">{g.desc}</span>
       </div>
       <DataRow label="CUMULATION" value={String(g.cum)} color="#cc44ff" />
-      {plexExpr && (
-        <DataRow label="PLEX" value={plexExpr} color="#cc44ff" />
+      {plex && (
+        <DataRow label="PLEX" value={plex} color="#cc44ff" />
       )}
       <DataRow
         label="CHANNEL"
@@ -346,6 +240,7 @@ interface InfoDisplayProps {
   pinnedInfo: HoverInfo | null
   selectedInfos?: HoverInfo[]
   onRemoveSelectedInfo?: (info: HoverInfo) => void
+  onHoverSelectedInfo?: (info: HoverInfo | null) => void
 }
 
 function selectedInfoKey(info: HoverInfo): string {
@@ -418,7 +313,13 @@ function NumogramIntro() {
   )
 }
 
-export function InfoDisplay({ hoverInfo, pinnedInfo, selectedInfos = [], onRemoveSelectedInfo }: InfoDisplayProps) {
+export function InfoDisplay({
+  hoverInfo,
+  pinnedInfo,
+  selectedInfos = [],
+  onRemoveSelectedInfo,
+  onHoverSelectedInfo,
+}: InfoDisplayProps) {
   const info = hoverInfo || pinnedInfo
   const selectedByKey = new Map(selectedInfos.map(si => [selectedInfoKey(si), si]))
   const selectedKeys = selectedInfos.map(selectedInfoKey)
@@ -451,6 +352,8 @@ export function InfoDisplay({ hoverInfo, pinnedInfo, selectedInfos = [], onRemov
           color: meta.color,
           content: renderInfoContent(si),
           onRemove: onRemoveSelectedInfo ? () => onRemoveSelectedInfo(si) : undefined,
+          onHoverStart: onHoverSelectedInfo ? () => onHoverSelectedInfo(si) : undefined,
+          onHoverEnd: onHoverSelectedInfo ? () => onHoverSelectedInfo(null) : undefined,
         })
         return acc
       }, [])

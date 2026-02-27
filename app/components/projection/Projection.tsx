@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React from 'react'
 import type { Layout, Layer, Pos, HoverInfo, GateRender, CurrentRender, LabelVisibility } from '../../data/types'
 import { ZONE_CLR, ZONE_REGION, ZONE_META, PLANET_SYMBOL } from '../../data/zones'
 import { PLANETARY_CX, PLANETARY_CY, PLANETARY_SIZE } from '../../data/positions'
@@ -11,6 +11,7 @@ import { ALL_DEMONS } from '../../data/demons'
 import { REGION_CLR, TC_EDGES, TC_CURRENTS, TC_SYZYGIES } from '../../lib/constants'
 import { curveAway, syzMidBiased, syzTrianglePoints, midpoint } from '../../lib/geometry'
 import { formatXenotationForDisplay } from '../../lib/xenotation'
+import { plexExpr } from '../../lib/numogram'
 
 interface ProjectionProps {
   layout: Layout
@@ -48,24 +49,7 @@ export const Projection = React.memo(function Projection({
   const getCurrentDestZone = (from: number, to: number, name: string) => (
     name === 'Warp' || name === 'Plex' ? Math.min(from, 9 - from) : to
   )
-  const plexExpr = (cum: number): string | null => {
-    if (cum < 10) return null
-    let current = cum
-    let expr = ''
-    let first = true
-    while (current >= 10) {
-      const digits = String(current).split('').map(d => Number(d))
-      const sum = digits.reduce((acc, d) => acc + d, 0)
-      if (first) {
-        expr = `${digits.join('+')}=${sum}`
-        first = false
-      } else {
-        expr += `=${sum}`
-      }
-      current = sum
-    }
-    return expr
-  }
+  // plexExpr imported from ../../lib/numogram
   const pathTerminals = (d: string): { start: Pos; end: Pos } | null => {
     const nums = d.match(/-?\d*\.?\d+/g)
     if (!nums || nums.length < 4) return null
@@ -103,10 +87,10 @@ export const Projection = React.memo(function Projection({
       <defs>
         <filter id="gl"><feGaussianBlur stdDeviation="3" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         <filter id="gl2"><feGaussianBlur stdDeviation="5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-        <marker id="arr-c" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="7" markerHeight="5" orient="auto">
+        <marker id="arr-c" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="9" markerHeight="7" orient="auto">
           <path d="M0,0.5 L7,3 L0,5.5" fill="#22ee66" />
         </marker>
-        <marker id="arr-g" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="6" markerHeight="4" orient="auto">
+        <marker id="arr-g" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="8" markerHeight="6" orient="auto">
           <path d="M0,0.5 L7,3 L0,5.5" fill="#cc44ff" />
         </marker>
         <filter id="sunGlow">

@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "CCRU Gematria Overlay",
+  "version": "0.1.0",
+  "description": "Twitter and selection gematria overlay with configurable cyphers and saved phrases.",
+  "permissions": ["storage", "contextMenus", "tabs", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "dist/src/background.js"
+  },
+  "action": {
+    "default_title": "Gematria",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["src/cyber-ui.css"],
+      "js": [
+        "dist/src/ciphers.js",
+        "dist/src/gematria.js",
+        "dist/src/cyber-ui.js",
+        "dist/src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

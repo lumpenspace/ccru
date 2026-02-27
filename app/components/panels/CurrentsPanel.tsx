@@ -4,7 +4,7 @@ import React from 'react'
 import type { HoverInfo } from '../../data/types'
 import { ZONE_CLR } from '../../data/zones'
 import { CURRENTS } from '../../data/currents'
-import { PanelColorBar, PanelList, PanelRow } from './shared'
+import { PanelColorBar, SelectableListPanel, type SelectableListDisplayProps } from './shared'
 
 interface CurrentsPanelProps {
   selZones: Set<number>
@@ -14,32 +14,47 @@ interface CurrentsPanelProps {
 }
 
 export function CurrentsPanel({ selZones, hlZones, onHoverInfo, onSelectCurrent }: CurrentsPanelProps) {
+  type CurrentItem = {
+    name: string
+    from: number
+    to: number
+    label: string
+    desc: string
+    isSelected: boolean
+    isHighlighted: boolean
+  }
+  const items: CurrentItem[] = CURRENTS.map(c => {
+    const partner = 9 - c.from
+    const isSelected = selZones.has(c.from) && selZones.has(c.to) && selZones.has(partner)
+    return {
+      ...c,
+      isSelected,
+      isHighlighted: isSelected || hlZones.has(c.from) || hlZones.has(c.to) || hlZones.has(partner),
+    }
+  })
+
+  const CurrentItemDisplay = ({ item }: SelectableListDisplayProps<CurrentItem>) => (
+    <>
+      <PanelColorBar color="#22ee66" active={item.isSelected || item.isHighlighted} />
+      <span style={{ color: '#22ee66', fontSize: '10px' }}>{item.name}</span>
+      <div className="flex items-center gap-0.5 text-[8px]">
+        <span style={{ color: ZONE_CLR[item.from] }}>{item.from}</span>
+        <span className="text-gray-700">{'\u2192'}</span>
+        <span style={{ color: ZONE_CLR[item.to] }}>{item.to}</span>
+      </div>
+      <span className="text-[8px] text-gray-700 ml-auto italic">{item.label}</span>
+    </>
+  )
+
   return (
-    <PanelList>
-      {CURRENTS.map(c => {
-        const partner = 9 - c.from
-        const isSelected = selZones.has(c.from) && selZones.has(c.to) && selZones.has(partner)
-        const isHl = isSelected || hlZones.has(c.from) || hlZones.has(c.to) || hlZones.has(partner)
-        return (
-          <div key={c.name}>
-            <PanelRow
-              opacity={isSelected ? 1 : 0.5}
-              onMouseEnter={() => onHoverInfo({ type: 'current', data: c })}
-              onMouseLeave={() => onHoverInfo(null)}
-              onClick={() => onSelectCurrent(c.from, c.to)}
-            >
-              <PanelColorBar color="#22ee66" active={isSelected || isHl} />
-              <span style={{ color: '#22ee66', fontSize: '10px' }}>{c.name}</span>
-              <div className="flex items-center gap-0.5 text-[8px]">
-                <span style={{ color: ZONE_CLR[c.from] }}>{c.from}</span>
-                <span className="text-gray-700">{'\u2192'}</span>
-                <span style={{ color: ZONE_CLR[c.to] }}>{c.to}</span>
-              </div>
-              <span className="text-[8px] text-gray-700 ml-auto italic">{c.label}</span>
-            </PanelRow>
-          </div>
-        )
-      })}
-    </PanelList>
+    <SelectableListPanel
+      items={items}
+      getKey={item => item.name}
+      onItemSelect={item => onSelectCurrent(item.from, item.to)}
+      onItemMouseEnter={item => onHoverInfo({ type: 'current', data: item })}
+      onItemMouseLeave={() => onHoverInfo(null)}
+      getItemOpacity={item => (item.isSelected ? 1 : 0.5)}
+      ItemDisplayComponent={CurrentItemDisplay}
+    />
   )
 }

@@ -4,7 +4,7 @@ import React from 'react'
 import type { HoverInfo } from '../../data/types'
 import { ZONE_CLR } from '../../data/zones'
 import { SYZYGIES } from '../../data/syzygies'
-import { PanelList, PanelRow } from './shared'
+import { SelectableListPanel, PanelColorBar, type SelectableListDisplayProps } from './shared'
 
 interface SyzygiesPanelProps {
   selZones: Set<number>
@@ -14,29 +14,34 @@ interface SyzygiesPanelProps {
 }
 
 export function SyzygiesPanel({ selZones, hlZones, onToggleSyzygyPair, onHoverInfo }: SyzygiesPanelProps) {
+  type SyzygyItem = { a: number; b: number; demon: string; desc: string; isHighlighted: boolean; isSelected: boolean }
+  const items: SyzygyItem[] = SYZYGIES.map(s => ({
+    ...s,
+    isHighlighted: hlZones.has(s.a) || hlZones.has(s.b),
+    isSelected: selZones.has(s.a) && selZones.has(s.b),
+  }))
+
+  const SyzygyItemDisplay = ({ item }: SelectableListDisplayProps<SyzygyItem>) => (
+    <>
+      <div className="flex gap-0.5 flex-shrink-0">
+        <PanelColorBar color={ZONE_CLR[item.a]} active={item.isHighlighted} />
+        <PanelColorBar color={ZONE_CLR[item.b]} active={item.isHighlighted} />
+      </div>
+      <span className="text-gray-400 text-[10px]">{item.a}::{item.b}</span>
+      <span className="text-gray-600 text-[8px] italic">{item.demon}</span>
+      <span className="text-[8px] text-gray-700 ml-auto">{item.b - item.a}</span>
+    </>
+  )
+
   return (
-    <PanelList>
-      {SYZYGIES.map(s => {
-        const isHl = hlZones.has(s.a) || hlZones.has(s.b)
-        return (
-          <div key={`${s.a}:${s.b}`}>
-            <PanelRow
-              opacity={isHl ? 1 : 0.5}
-              onMouseEnter={() => onHoverInfo({ type: 'syzygy', data: s })}
-              onMouseLeave={() => onHoverInfo(null)}
-              onClick={() => onToggleSyzygyPair(s.a, s.b)}
-            >
-              <div className="flex gap-0.5 flex-shrink-0">
-                <div className="w-1 h-3 transition-all" style={{ background: isHl ? ZONE_CLR[s.a] : `${ZONE_CLR[s.a]}44` }} />
-                <div className="w-1 h-3 transition-all" style={{ background: isHl ? ZONE_CLR[s.b] : `${ZONE_CLR[s.b]}44` }} />
-              </div>
-              <span className="text-gray-400 text-[10px]">{s.a}::{s.b}</span>
-              <span className="text-gray-600 text-[8px] italic">{s.demon}</span>
-              <span className="text-[8px] text-gray-700 ml-auto">{s.b - s.a}</span>
-            </PanelRow>
-          </div>
-        )
-      })}
-    </PanelList>
+    <SelectableListPanel
+      items={items}
+      getKey={item => `${item.a}:${item.b}`}
+      onItemSelect={item => onToggleSyzygyPair(item.a, item.b)}
+      onItemMouseEnter={item => onHoverInfo({ type: 'syzygy', data: item })}
+      onItemMouseLeave={() => onHoverInfo(null)}
+      getItemOpacity={item => (item.isHighlighted || item.isSelected ? 1 : 0.5)}
+      ItemDisplayComponent={SyzygyItemDisplay}
+    />
   )
 }

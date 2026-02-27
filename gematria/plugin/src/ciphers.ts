@@ -1,0 +1,196 @@
+(() => {
+  const ALPHANUM = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const QWERTY = 'qwertyuiopasdfghjklzxcvbnm';
+  const NUMERIC_QWERTY = `1234567890${QWERTY}`;
+  const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  const ALPHANUM_PRIMES: number[] = [
+    1, 2, 3, 5, 7, 11, 13, 17, 19, 23,
+    29, 31, 37, 41, 43, 47, 53, 59, 61, 67,
+    71, 73, 79, 83, 89, 97, 101, 103, 107, 109,
+    113, 127, 131, 137, 139, 149,
+  ];
+
+  const ALPHANUM_SYNX: number[] = [
+    1, 2, 3, 4, 5, 6, 7, 9, 10, 12,
+    14, 15, 18, 20, 21, 28, 30, 35, 36, 42,
+    45, 60, 63, 70, 84, 90, 105, 126, 140, 180,
+    210, 252, 315, 420, 630, 1260,
+  ];
+
+  const ALPHANUM_ARCHAIC: number[] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    10, 11, 12, 13, 14, 15, 16, 17, 18, 18,
+    19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+    29, 29, 30, 31, 32, 33,
+  ];
+
+  function rangeValues(size: number, start = 0): number[] {
+    return Array.from({ length: size }, (_, index) => index + start);
+  }
+
+  function squares(size: number): number[] {
+    return Array.from({ length: size }, (_, index) => index * index);
+  }
+
+  function trigonal(size: number): number[] {
+    return Array.from({ length: size }, (_, index) => (index * (index + 1)) / 2);
+  }
+
+  const ciphers: GematriaCipher[] = [
+    {
+      id: 'alphanumeric-qabbala',
+      name: 'Alphanumeric Qabbala',
+      shortName: 'AQ',
+      icon: '⟐',
+      summary: 'Base-36 ordinal map: 0-9 then a-z as 10-35.',
+      hue: 60,
+      saturation: 33,
+      lightness: 62,
+      chars: ALPHANUM,
+      values: rangeValues(36),
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'synx',
+      name: 'Synx',
+      shortName: 'Synx',
+      icon: '☍',
+      summary: 'Accelerating CCRU progression with amplified jumps across symbols.',
+      hue: 180,
+      saturation: 44,
+      lightness: 66,
+      chars: ALPHANUM,
+      values: ALPHANUM_SYNX,
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'numeric-qwerty',
+      name: 'Numeric QWERTY',
+      shortName: 'NQ',
+      icon: '⌨',
+      summary: 'Keyboard-order mapping across 1234567890 + qwerty rows.',
+      hue: 120,
+      saturation: 57,
+      lightness: 60,
+      chars: NUMERIC_QWERTY,
+      values: rangeValues(36),
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'qwerty',
+      name: 'QWERTY',
+      shortName: 'QW',
+      icon: '🆀',
+      summary: 'Alphabet reduced to keyboard layout order (qwerty...m).',
+      hue: 120,
+      saturation: 57,
+      lightness: 36,
+      chars: QWERTY,
+      values: rangeValues(26, 1),
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'alphanumeric-satanic',
+      name: 'Alphanumeric Satanic',
+      shortName: 'Satanic',
+      icon: '⛧',
+      summary: 'Case-sensitive alphanumeric extension to 0-61.',
+      hue: 32,
+      saturation: 68,
+      lightness: 62,
+      chars: `${ALPHANUM}${UPPER}`,
+      values: rangeValues(62),
+      diacriticsAsRegular: true,
+      caseSensitive: true,
+    },
+    {
+      id: 'alphanumeric-primes',
+      name: 'Alphanumeric Primes',
+      shortName: 'Primes',
+      icon: '✶',
+      summary: 'Prime sequence assigned to the alphanumeric set.',
+      hue: 34,
+      saturation: 53,
+      lightness: 73,
+      chars: ALPHANUM,
+      values: ALPHANUM_PRIMES,
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'alphanumeric-squares',
+      name: 'Alphanumeric Squares',
+      shortName: 'Squares',
+      icon: '◼',
+      summary: 'Square numbers n^2 over the alphanumeric sequence.',
+      hue: 175,
+      saturation: 19,
+      lightness: 61,
+      chars: ALPHANUM,
+      values: squares(36),
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'alphanumeric-trigonal',
+      name: 'Alphanumeric Trigonal',
+      shortName: 'Trigonal',
+      icon: '△',
+      summary: 'Triangular numbers n(n+1)/2 over the alphanumeric sequence.',
+      hue: 101,
+      saturation: 22,
+      lightness: 64,
+      chars: ALPHANUM,
+      values: trigonal(36),
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'archaic-alphanumeric',
+      name: 'Archaic Alphanumeric',
+      shortName: 'Archaic',
+      icon: '𒀯',
+      summary: 'Legacy CCRU variant with compressed repeated steps.',
+      hue: 33,
+      saturation: 67,
+      lightness: 67,
+      chars: ALPHANUM,
+      values: ALPHANUM_ARCHAIC,
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+    {
+      id: 'numeric-qwerty-primes',
+      name: 'Numeric QWERTY Primes',
+      shortName: 'NQ Prime',
+      icon: 'ℚ',
+      summary: 'Keyboard-order variant weighted by prime progression.',
+      hue: 44,
+      saturation: 56,
+      lightness: 62,
+      chars: NUMERIC_QWERTY,
+      values: ALPHANUM_PRIMES,
+      diacriticsAsRegular: true,
+      caseSensitive: false,
+    },
+  ];
+
+  const namespace: Partial<GematriaPluginNamespace> = (globalThis as any).GematriaPlugin || {};
+  namespace.ciphers = ciphers;
+  namespace.defaultSettings = {
+    enabledCypherIds: ['alphanumeric-qabbala', 'synx', 'qwerty'],
+    interestingValues: [33, 93, 119],
+    autoShowSelectionOnSelect: false,
+  };
+  namespace.storageKeys = {
+    settings: 'gematria_settings',
+    savedEntries: 'gematria_saved_entries',
+  };
+
+  (globalThis as any).GematriaPlugin = namespace as GematriaPluginNamespace;
+})();
