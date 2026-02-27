@@ -35,6 +35,8 @@
       enabledCypherIds: enabledCypherIds.length > 0 ? enabledCypherIds : defaultSettings.enabledCypherIds,
       interestingValues,
       autoShowSelectionOnSelect: next.autoShowSelectionOnSelect === true,
+      enableTweetOverlay: next.enableTweetOverlay !== false,
+      enableTweetComposition: next.enableTweetComposition !== false,
     };
   }
 
@@ -148,7 +150,14 @@
   }
 
   function findTweetCardHost(article) {
-    return { host: article, variant: 'right' };
+    if (!(article instanceof HTMLElement)) return null;
+
+    const rect = article.getBoundingClientRect();
+    const viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const requiredRightSpace = 286;
+    const hasSideSpace = rect.width >= 320 && (viewportWidth - rect.right) >= requiredRightSpace;
+
+    return { host: article, variant: hasSideSpace ? 'side' : 'right' };
   }
 
   function clearTweetCard(article) {
@@ -185,7 +194,7 @@
       });
 
       const savedLink = document.createElement('a');
-      savedLink.href = '/gematria/saved';
+      savedLink.href = '/gematria';
       savedLink.textContent = 'View saved items';
       savedLink.className = saveButton.className;
       savedLink.classList.add('gm-btn-saved-link');
@@ -198,9 +207,12 @@
     let overlay = article.querySelector(`.${TWEET_OVERLAY_CLASS}`);
     const target = findTweetCardHost(article);
     if (!target || !(target.host instanceof HTMLElement)) return null;
+    const isRightVariant = target.variant === 'right';
+    const isSideVariant = target.variant === 'side';
 
     if (card) {
-      card.classList.toggle('gm-tweet-right-widget', target.variant === 'right');
+      card.classList.toggle('gm-tweet-right-widget', isRightVariant);
+      card.classList.toggle('gm-tweet-side-widget', isSideVariant);
       if (card.parentElement !== target.host) {
         if (target.variant === 'right') {
           target.host.appendChild(card);
@@ -221,6 +233,7 @@
         ].join('');
         article.appendChild(overlay);
       }
+      overlay.classList.add('gm-tweet-side-overlay');
       bindTweetOverlaySaveButton(overlay, article);
       article.classList.add('gm-tweet-host');
       return { card, overlay };
@@ -228,7 +241,8 @@
 
     card = document.createElement('div');
     card.className = TWEET_CARD_CLASS;
-    card.classList.toggle('gm-tweet-right-widget', target.variant === 'right');
+    card.classList.toggle('gm-tweet-right-widget', isRightVariant);
+    card.classList.toggle('gm-tweet-side-widget', isSideVariant);
     card.innerHTML = [
       '<span class="gm-tweet-inline-values"></span>',
     ].join('');
@@ -243,6 +257,7 @@
       '</div>',
       '</div>',
     ].join('');
+    overlay.classList.add('gm-tweet-side-overlay');
     article.appendChild(overlay);
 
     bindTweetOverlaySaveButton(overlay, article);
@@ -257,7 +272,47 @@
     return { card, overlay };
   }
 
+  function bindTweetHover(article) {
+    if (article.dataset.gematriaHoverBound === '1') return;
+    article.dataset.gematriaHoverBound = '1';
+
+    let hideTimer = 0;
+
+    function showOverlay() {
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0; }
+      const overlay = article.querySelector(`.${TWEET_OVERLAY_CLASS}`);
+      if (!overlay || !(overlay instanceof HTMLElement)) return;
+      overlay.classList.add('gm-overlay-active');
+
+      if (overlay.dataset.gematriaOverlayHoverBound !== '1') {
+        overlay.dataset.gematriaOverlayHoverBound = '1';
+        overlay.addEventListener('mouseenter', () => {
+          if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0; }
+        });
+        overlay.addEventListener('mouseleave', scheduleHide);
+      }
+    }
+
+    function scheduleHide() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => {
+        hideTimer = 0;
+        const overlay = article.querySelector(`.${TWEET_OVERLAY_CLASS}`);
+        if (overlay) overlay.classList.remove('gm-overlay-active');
+      }, 200);
+    }
+
+    article.addEventListener('mouseenter', showOverlay);
+    article.addEventListener('mouseleave', scheduleHide);
+  }
+
   function decorateTweet(article) {
+    if (settings.enableTweetOverlay !== true) {
+      clearTweetCard(article);
+      article.classList.remove('gm-interesting-tweet');
+      return;
+    }
+
     const phrase = getTweetText(article);
     if (!phrase) {
       clearTweetCard(article);
@@ -276,6 +331,8 @@
       return;
     }
     const { card, overlay } = widgets;
+
+    bindTweetHover(article);
 
     if (article.dataset.gematriaSignature === signature && card.dataset.gematriaSignature === signature) {
       article.classList.toggle('gm-interesting-tweet', matchesInteresting);
@@ -303,6 +360,13 @@
 
   function decorateTweets() {
     const tweets = document.querySelectorAll('article[data-testid="tweet"]');
+    if (settings.enableTweetOverlay !== true) {
+      tweets.forEach(article => {
+        clearTweetCard(article);
+        article.classList.remove('gm-interesting-tweet');
+      });
+      return;
+    }
     tweets.forEach(article => decorateTweet(article));
   }
 
@@ -345,7 +409,27 @@
     return widget;
   }
 
+  function clearComposerWidget(textbox) {
+    if (!(textbox instanceof HTMLElement)) return;
+    const composerHost = textbox as any;
+    const widget = composerHost._gematriaComposerWidget;
+    if (widget && widget.isConnected) {
+      const parent = widget.parentElement;
+      widget.remove();
+      if (parent) {
+        parent.classList.remove('gm-composer-row');
+        parent.classList.remove('gm-composer-fallback-host');
+      }
+    }
+    composerHost._gematriaComposerWidget = null;
+  }
+
   function updateComposerWidget(textbox) {
+    if (settings.enableTweetComposition !== true) {
+      clearComposerWidget(textbox);
+      return;
+    }
+
     const widget = ensureComposerWidget(textbox);
     const phrase = utils.sanitizeText(textbox.innerText || textbox.textContent || '');
     const values = utils.calcValuesForText(phrase, settings);
@@ -376,6 +460,10 @@
 
   function decorateComposers() {
     const textboxes = document.querySelectorAll('[role="textbox"][data-testid^="tweetTextarea_"]');
+    if (settings.enableTweetComposition !== true) {
+      textboxes.forEach(textbox => clearComposerWidget(textbox));
+      return;
+    }
     textboxes.forEach(textbox => bindComposerTextbox(textbox));
   }
 
@@ -564,7 +652,7 @@
         link: pageUrl || location.href,
       });
       const link = document.createElement('a');
-      link.href = '/gematria/saved';
+      link.href = '/gematria';
       link.textContent = 'View saved items';
       link.className = saveButton.className;
       link.classList.add('gm-btn-saved-link');
@@ -588,30 +676,63 @@
     }
   }
 
+  function formatEntryDate(timestamp) {
+    if (!Number.isFinite(timestamp)) return '-';
+    try {
+      return new Date(timestamp).toLocaleDateString();
+    } catch {
+      return '-';
+    }
+  }
+
+  function formatEntryClock(timestamp) {
+    if (!Number.isFinite(timestamp)) return '-';
+    try {
+      return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '-';
+    }
+  }
+
   function renderSavedEntry(entry) {
     const valueMarkup = Array.isArray(entry.values)
       ? entry.values
           .map(row => {
             const color = cypherColor(row);
-            return `<span class="gm-cyber-inline-value" style="--gm-accent:${color}">${escapeHtml(cypherGlyph(row))} ${row.value}</span>`;
+            return [
+              `<span class="gm-cyber-inline-value gm-saved-pill" style="--gm-accent:${color}">`,
+              `<span class="gm-saved-pill-glyph">${escapeHtml(cypherGlyph(row))}</span>`,
+              `<span class="gm-saved-pill-value">${escapeHtml(`${row.value}`)}</span>`,
+              '</span>',
+            ].join('');
           })
           .join('')
       : '<span class="gm-cyber-muted">No values</span>';
 
     const link = escapeHtml(entry.link || '');
     const phrase = escapeHtml(entry.phrase || '');
+    const dateLabel = escapeHtml(formatEntryDate(entry.createdAt));
+    const clockLabel = escapeHtml(formatEntryClock(entry.createdAt));
+    const fullDateTime = escapeHtml(formatEntryTime(entry.createdAt));
 
     return [
       `<article class="gm-saved-item gm-cyber-panel" data-entry-id="${escapeHtml(entry.id)}">`,
-      '<div class="gm-saved-head">',
-      `<span class="gm-saved-context">${escapeHtml(entry.context || 'item')}</span>`,
-      `<span class="gm-saved-time">${escapeHtml(formatEntryTime(entry.createdAt))}</span>`,
-      '</div>',
+      '<div class="gm-saved-top">',
       `<div class="gm-saved-phrase">${phrase}</div>`,
-      `<div class="gm-saved-values">${valueMarkup}</div>`,
+      `<div class="gm-saved-time-rail" title="${fullDateTime}">`,
+      `<span class="gm-saved-date">${dateLabel}</span>`,
+      `<span class="gm-saved-clock">${clockLabel}</span>`,
+      '</div>',
+      '</div>',
+      '<div class="gm-saved-layout">',
+      '<div class="gm-saved-meta">',
+      `<span class="gm-saved-context">${escapeHtml(entry.context || 'item')}</span>`,
       `<div class="gm-saved-link"><a href="${link}" target="_blank" rel="noreferrer">${link}</a></div>`,
       '<div class="gm-saved-actions">',
       '<button type="button" class="gm-cyber-button gm-cyber-button-danger gm-btn-delete" data-action="delete">Delete</button>',
+      '</div>',
+      '</div>',
+      `<div class="gm-saved-values">${valueMarkup}</div>`,
       '</div>',
       '</article>',
     ].join('');
@@ -625,7 +746,7 @@
 
     const entries = await readSavedEntries();
     if (entries.length === 0) {
-      root.innerHTML = '<div class="gm-empty">No saved entries yet. Save from tweet hover cards or right-click selection overlays.</div>';
+      root.innerHTML = '<div class="gm-empty">the items you save will end up here</div>';
       return;
     }
 
@@ -740,12 +861,14 @@
 
       const rootChanged = root !== activeRoot;
       activeRoot = root;
+      const hasExtensionMarkup = !!root.querySelector('.gm-saved-toolbar, .gm-saved-list, .gm-empty');
 
       bindSavedPageActions();
-      if (!rootChanged) return;
+      if (!rootChanged && hasExtensionMarkup) return;
 
       // Next.js hydration can temporarily clobber injected markup on first load.
       renderSavedPage();
+      if (!rootChanged) return;
       [100, 400, 1400].forEach(delay => {
         window.setTimeout(() => {
           if (root.isConnected) renderSavedPage();

@@ -115,6 +115,143 @@
     return textarea;
   }
 
+  interface NumericPillInputOptions {
+    className?: string;
+    listClassName?: string;
+    entryClassName?: string;
+    pillClassName?: string;
+    values?: number[];
+    placeholder?: string;
+  }
+
+  function parseNumericPills(raw: unknown): number[] {
+    const matches = `${raw || ''}`.match(/-?\d+/g);
+    if (!matches) return [];
+    return matches.map(value => Number(value)).filter(value => Number.isFinite(value));
+  }
+
+  function createNumericPillInput({
+    className = '',
+    listClassName = '',
+    entryClassName = '',
+    pillClassName = '',
+    values = [],
+    placeholder = '',
+  }: NumericPillInputOptions = {}): GematriaUiNumericPillInput {
+    const root = createElement('span', `ui-pill-input-field ${className}`.trim());
+    const list = createElement('span', `ui-pill-input-list ${listClassName}`.trim());
+    const input = createElement('input', `ui-pill-input-entry ${entryClassName}`.trim()) as HTMLInputElement;
+    input.type = 'text';
+    input.spellcheck = false;
+    input.placeholder = `${placeholder || ''}`;
+
+    root.appendChild(list);
+    root.appendChild(input);
+
+    let currentValues = Array.isArray(values) ? parseNumericPills(values.join(',')) : [];
+    const listeners = new Set<(values: number[]) => void>();
+
+    function notify(): void {
+      const snapshot = [...currentValues];
+      for (const listener of listeners) listener(snapshot);
+    }
+
+    function renderPills(): void {
+      list.innerHTML = '';
+      currentValues.forEach((value, index) => {
+        const pill = createElement('span', `gm-cyber-badge ui-pill-input-pill ${pillClassName}`.trim(), `${value}`);
+        const removeButton = createElement('button', 'ui-pill-input-close', 'x') as HTMLButtonElement;
+        removeButton.type = 'button';
+        removeButton.setAttribute('aria-label', `Remove ${value}`);
+        removeButton.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          currentValues = currentValues.filter((_, valueIndex) => valueIndex !== index);
+          renderPills();
+          notify();
+          input.focus();
+        });
+        pill.appendChild(removeButton);
+        list.appendChild(pill);
+      });
+    }
+
+    function appendFromRaw(raw: unknown): boolean {
+      const nextValues = parseNumericPills(raw);
+      if (nextValues.length === 0) return false;
+      currentValues = [...currentValues, ...nextValues];
+      renderPills();
+      notify();
+      return true;
+    }
+
+    function commitDraft(): boolean {
+      const committed = appendFromRaw(input.value);
+      input.value = '';
+      return committed;
+    }
+
+    input.addEventListener('input', () => {
+      if (/[,\s]/.test(input.value)) {
+        commitDraft();
+      }
+    });
+
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Backspace' && !input.value && currentValues.length > 0) {
+        event.preventDefault();
+        currentValues = currentValues.slice(0, -1);
+        renderPills();
+        notify();
+        return;
+      }
+
+      if (event.key === 'Enter' || event.key === 'Tab' || event.key === ',' || event.key === ' ') {
+        event.preventDefault();
+        commitDraft();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      commitDraft();
+    });
+
+    input.addEventListener('paste', event => {
+      const pasted = event.clipboardData ? event.clipboardData.getData('text') : '';
+      const parsed = parseNumericPills(pasted);
+      if (parsed.length === 0) return;
+      event.preventDefault();
+      currentValues = [...currentValues, ...parsed];
+      renderPills();
+      notify();
+      input.value = '';
+    });
+
+    renderPills();
+
+    return {
+      root,
+      list,
+      input,
+      getValues() {
+        return [...currentValues];
+      },
+      setValues(nextValues: number[] = []) {
+        currentValues = parseNumericPills(Array.isArray(nextValues) ? nextValues.join(',') : '');
+        renderPills();
+      },
+      onChange(listener: (values: number[]) => void) {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      focus() {
+        input.focus();
+      },
+    };
+  }
+
   function createInput({
     className = '',
     type = 'text',
@@ -178,25 +315,43 @@
     label?: string;
     description?: string;
     checked?: boolean;
+    accent?: string;
   }
 
-  function createCheckboxRow({ label, description, checked = false }: CheckboxRowOptions = {}): GematriaUiCheckboxResult {
-    const row = createElement('label', 'gm-cyber-checkbox-row');
-    const input = createElement('input', 'gm-cyber-checkbox-input');
+  function createCheckboxRow({
+    label,
+    description,
+    checked = false,
+    accent = '#10ff50',
+  }: CheckboxRowOptions = {}): GematriaUiCheckboxResult {
+    const row = createElement('label', 'gm-cyber-chip-checkbox-row');
+    row.style.setProperty('--gm-accent', accent);
+
+    const input = createElement('input', 'gm-cyber-chip-checkbox-input');
     input.type = 'checkbox';
     input.checked = checked;
 
-    const textWrap = createElement('span', 'gm-cyber-checkbox-text');
-    const labelEl = createElement('span', 'gm-cyber-checkbox-label', label || '');
+    const textWrap = createElement('span', 'gm-cyber-chip-checkbox-text');
+    const labelEl = createElement('span', 'gm-cyber-chip-checkbox-label', label || '');
     textWrap.appendChild(labelEl);
 
     if (description) {
-      const descEl = createElement('span', 'gm-cyber-checkbox-sub', description);
+      const descEl = createElement('span', 'gm-cyber-chip-checkbox-sub', description);
       textWrap.appendChild(descEl);
     }
 
+    const dot = createElement('span', 'gm-cyber-chip-checkbox-dot');
+    dot.setAttribute('aria-hidden', 'true');
+
+    const sync = (): void => {
+      row.classList.toggle('gm-cyber-chip-checkbox-checked', input.checked);
+    };
+    input.addEventListener('change', sync);
+    sync();
+
     row.appendChild(input);
     row.appendChild(textWrap);
+    row.appendChild(dot);
 
     return { row, input, textWrap, labelEl };
   }
@@ -357,6 +512,7 @@
     createPanel,
     createButton,
     createTextArea,
+    createNumericPillInput,
     createInput,
     createSelect,
     createBadge,

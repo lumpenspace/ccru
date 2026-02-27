@@ -10,17 +10,22 @@
     enabledCypherIds: [...defaultSettings.enabledCypherIds],
     interestingValues: [...defaultSettings.interestingValues],
     autoShowSelectionOnSelect: defaultSettings.autoShowSelectionOnSelect === true,
+    enableTweetOverlay: defaultSettings.enableTweetOverlay !== false,
+    enableTweetComposition: defaultSettings.enableTweetComposition !== false,
   };
 
-  let interestingInputEl = null;
-  let interestingPillsEl = null;
+  let interestingValuesInput = null;
   let cypherListEl = null;
   let cypherCountEl = null;
   let saveStatusEl = null;
   let selectedInputEl = null;
   let selectedValuesEl = null;
+  let selectedSaveButtonEl = null;
   let autoSelectionInput = null;
+  let tweetOverlayInput = null;
+  let tweetCompositionInput = null;
   let hasUserEditedPhrase = false;
+  let pendingSavePromise: Promise<void> | null = null;
 
   function normalizeSettings(raw) {
     const next = raw || {};
@@ -32,6 +37,8 @@
       enabledCypherIds: enabledCypherIds.length > 0 ? enabledCypherIds : [...defaultSettings.enabledCypherIds],
       interestingValues: utils.parseInterestingValues(next.interestingValues),
       autoShowSelectionOnSelect: next.autoShowSelectionOnSelect === true,
+      enableTweetOverlay: next.enableTweetOverlay !== false,
+      enableTweetComposition: next.enableTweetComposition !== false,
     };
   }
 
@@ -91,6 +98,76 @@
     }
     const values = utils.calcValuesForText(phrase, settings);
     selectedValuesEl.innerHTML = renderValuesBadges(values);
+  }
+
+  async function readSavedEntries() {
+    const data = await chrome.storage.local.get(storageKeys.savedEntries);
+    const entries = data[storageKeys.savedEntries];
+    return Array.isArray(entries) ? entries : [];
+  }
+
+  async function writeSavedEntries(entries) {
+    await chrome.storage.local.set({ [storageKeys.savedEntries]: entries });
+  }
+
+  async function saveSelectedPhrase() {
+    if (pendingSavePromise) {
+      await pendingSavePromise;
+      return;
+    }
+
+    pendingSavePromise = (async () => {
+      if (selectedSaveButtonEl) selectedSaveButtonEl.setAttribute('disabled', 'true');
+      if (!selectedInputEl) return;
+
+      const phrase = utils.sanitizeText(selectedInputEl.value || '');
+      if (!phrase) {
+        if (saveStatusEl) {
+          saveStatusEl.textContent = 'Type text to save';
+          setTimeout(() => {
+            if (saveStatusEl && saveStatusEl.textContent === 'Type text to save') saveStatusEl.textContent = '';
+          }, 900);
+        }
+        return;
+      }
+
+      if (saveStatusEl) saveStatusEl.textContent = 'Saving...';
+
+      const values = utils.calcValuesForText(phrase, settings);
+      let link = 'https://num.qliphoth.systems/gematria';
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs[0] && typeof tabs[0].url === 'string' && tabs[0].url) {
+          link = tabs[0].url;
+        }
+      } catch {}
+
+      const entries = await readSavedEntries();
+      const nextEntry = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+        createdAt: Date.now(),
+        context: 'popup',
+        phrase,
+        values,
+        link,
+      };
+
+      await writeSavedEntries([nextEntry, ...entries].slice(0, 500));
+      if (saveStatusEl) {
+        saveStatusEl.textContent = 'Text saved';
+        setTimeout(() => {
+          if (saveStatusEl && saveStatusEl.textContent === 'Text saved') saveStatusEl.textContent = '';
+        }, 900);
+      }
+    })().finally(() => {
+      if (selectedSaveButtonEl) selectedSaveButtonEl.removeAttribute('disabled');
+    });
+
+    try {
+      await pendingSavePromise;
+    } finally {
+      pendingSavePromise = null;
+    }
   }
 
   function applySelectionToEditor(payload, { forcePopulate = false } = {}) {
@@ -160,6 +237,8 @@
       enabledCypherIds: settings.enabledCypherIds,
       interestingValues: settings.interestingValues,
       autoShowSelectionOnSelect: settings.autoShowSelectionOnSelect === true,
+      enableTweetOverlay: settings.enableTweetOverlay !== false,
+      enableTweetComposition: settings.enableTweetComposition !== false,
     };
 
     await chrome.storage.local.set({ [storageKeys.settings]: payload });
@@ -278,95 +357,20 @@
   }
 
   function bindInterestingValues() {
-    if (!interestingInputEl || !interestingPillsEl) return;
+    if (!interestingValuesInput) return;
 
-    async function persistInterestingValues() {
-      await persistSettings();
+    interestingValuesInput.setValues(settings.interestingValues);
+    interestingValuesInput.onChange(async values => {
+      settings.interestingValues = utils.parseInterestingValues(values);
       renderPhraseValues();
-    }
-
-    async function commitInput(raw) {
-      const parsed = utils.parseInterestingValues(raw);
-      if (parsed.length === 0) return false;
-
-      settings.interestingValues = [...settings.interestingValues, ...parsed];
-      renderInterestingPills();
-      interestingInputEl.value = '';
-      await persistInterestingValues();
-      return true;
-    }
-
-    function renderInterestingPills() {
-      interestingPillsEl.innerHTML = '';
-
-      for (let index = 0; index < settings.interestingValues.length; index += 1) {
-        const value = settings.interestingValues[index];
-        const pill = document.createElement('span');
-        pill.className = 'gm-cyber-badge gm-popup-pill';
-        pill.textContent = `${value}`;
-
-        const removeButton = document.createElement('button');
-        removeButton.type = 'button';
-        removeButton.className = 'gm-popup-pill-close';
-        removeButton.textContent = 'x';
-        removeButton.setAttribute('aria-label', `Remove ${value}`);
-        removeButton.addEventListener('click', async event => {
-          event.preventDefault();
-          event.stopPropagation();
-
-          settings.interestingValues = settings.interestingValues.filter((_, valueIndex) => valueIndex !== index);
-          renderInterestingPills();
-          await persistInterestingValues();
-        });
-
-        pill.appendChild(removeButton);
-        interestingPillsEl.appendChild(pill);
-      }
-    }
-
-    interestingInputEl.value = '';
-    renderInterestingPills();
-
-    interestingInputEl.addEventListener('keydown', async event => {
-      if (event.key === 'Backspace' && !interestingInputEl.value && settings.interestingValues.length > 0) {
-        event.preventDefault();
-        settings.interestingValues = settings.interestingValues.slice(0, -1);
-        renderInterestingPills();
-        await persistInterestingValues();
-        return;
-      }
-
-      if (event.key === 'Enter' || event.key === 'Tab' || event.key === ',' || event.key === ' ') {
-        event.preventDefault();
-        await commitInput(interestingInputEl.value);
-      }
-    });
-
-    interestingInputEl.addEventListener('input', async () => {
-      if (!/[,\s]/.test(interestingInputEl.value)) return;
-      await commitInput(interestingInputEl.value);
-    });
-
-    interestingInputEl.addEventListener('paste', async event => {
-      const pasted = event.clipboardData.getData('text');
-      const parsed = utils.parseInterestingValues(pasted);
-      if (parsed.length === 0) return;
-
-      event.preventDefault();
-      settings.interestingValues = [...settings.interestingValues, ...parsed];
-      renderInterestingPills();
-      interestingInputEl.value = '';
-      await persistInterestingValues();
-    });
-
-    interestingInputEl.addEventListener('blur', async () => {
-      await commitInput(interestingInputEl.value);
+      await persistSettings();
     });
   }
 
   function bindSelectionToggle() {
     if (!autoSelectionInput) return;
     autoSelectionInput.checked = settings.autoShowSelectionOnSelect === true;
+    autoSelectionInput.dispatchEvent(new Event('change'));
 
     autoSelectionInput.addEventListener('change', async () => {
       settings.autoShowSelectionOnSelect = autoSelectionInput.checked;
@@ -374,27 +378,52 @@
     });
   }
 
-  function openSavedPage() {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      let targetUrl = 'https://num.qliphoth.systems/gematria/saved';
+  function bindTwitterFeatureToggles() {
+    if (tweetOverlayInput) {
+      tweetOverlayInput.checked = settings.enableTweetOverlay !== false;
+      tweetOverlayInput.dispatchEvent(new Event('change'));
+      tweetOverlayInput.addEventListener('change', async () => {
+        settings.enableTweetOverlay = tweetOverlayInput.checked;
+        await persistSettings();
+      });
+    }
 
+    if (tweetCompositionInput) {
+      tweetCompositionInput.checked = settings.enableTweetComposition !== false;
+      tweetCompositionInput.dispatchEvent(new Event('change'));
+      tweetCompositionInput.addEventListener('change', async () => {
+        settings.enableTweetComposition = tweetCompositionInput.checked;
+        await persistSettings();
+      });
+    }
+  }
+
+  async function openSavedPage() {
+    if (pendingSavePromise) {
+      try {
+        await pendingSavePromise;
+      } catch {}
+    }
+
+    let targetUrl = 'https://num.qliphoth.systems/gematria';
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       const active = tabs[0];
       if (active && active.url) {
-        try {
-          const base = new URL(active.url);
-          const host = base.hostname.toLowerCase();
-          const localHost = host === 'localhost' || host === '127.0.0.1';
-          const appHost = host === 'num.qliphoth.systems';
-          if ((base.protocol === 'http:' || base.protocol === 'https:') && (localHost || appHost)) {
-            targetUrl = `${base.origin}/gematria/saved`;
-          }
-        } catch {
-          targetUrl = 'https://num.qliphoth.systems/gematria/saved';
+        const base = new URL(active.url);
+        const host = base.hostname.toLowerCase();
+        const localHost = host === 'localhost' || host === '127.0.0.1';
+        const appHost = host === 'num.qliphoth.systems';
+        if ((base.protocol === 'http:' || base.protocol === 'https:') && (localHost || appHost)) {
+          targetUrl = `${base.origin}/gematria`;
         }
       }
+    } catch {
+      targetUrl = 'https://num.qliphoth.systems/gematria';
+    }
 
-      chrome.tabs.create({ url: targetUrl });
-    });
+    await chrome.tabs.create({ url: targetUrl });
   }
 
   function mountUi() {
@@ -404,8 +433,11 @@
       title: 'Text',
     });
 
+    const selectedInputField = document.createElement('span');
+    selectedInputField.className = 'ui-terminal-field ui-terminal-field-area gm-popup-text-shell';
+
     selectedInputEl = ui.createTextArea({
-      className: 'gm-popup-textarea',
+      className: 'ui-terminal-input ui-terminal-area gm-popup-textarea',
       rows: 3,
       placeholder: 'Select text in the active tab, or type here.',
       spellcheck: false,
@@ -418,82 +450,105 @@
     selectedValuesEl = document.createElement('div');
     selectedValuesEl.className = 'gm-values';
 
-    selectedPanel.body.appendChild(selectedInputEl);
+    selectedInputField.appendChild(selectedInputEl);
+    selectedPanel.body.appendChild(selectedInputField);
     selectedPanel.body.appendChild(selectedValuesEl);
 
-    const behaviorPanel = ui.createPanel({
-      title: 'Selection Behavior',
+    const selectedActions = document.createElement('div');
+    selectedActions.className = 'gm-popup-action-row';
+    selectedSaveButtonEl = ui.createButton({ label: 'Save' });
+    selectedSaveButtonEl.classList.add('gm-popup-save-text');
+    selectedSaveButtonEl.addEventListener('click', async event => {
+      event.preventDefault();
+      await saveSelectedPhrase();
+    });
+    selectedActions.appendChild(selectedSaveButtonEl);
+    selectedPanel.body.appendChild(selectedActions);
+
+    const settingsPanel = ui.createPanel({
+      title: 'Settings',
       collapsible: true,
       defaultOpen: false,
     });
 
-    const selectionToggle = ui.createSelectionRowWithPopup({
+    const behaviorField = document.createElement('section');
+    behaviorField.className = 'gm-popup-field';
+    const behaviorHeading = document.createElement('h3');
+    behaviorHeading.className = 'gm-popup-field-title';
+    behaviorHeading.textContent = 'Behavior';
+    const selectionToggle = ui.createCheckboxRow({
       label: 'Auto-show values',
       description: 'Show selected-text values every time text is selected.',
-      popupTitle: 'Auto Selection',
-      popupText: 'When enabled, selecting text on any page automatically opens the selected-text value panel.',
       accent: '#10ff50',
       checked: false,
     });
+    const tweetOverlayToggle = ui.createCheckboxRow({
+      label: 'Twitter overlay',
+      description: 'Show tweet hover cards and highlights on Twitter/X.',
+      accent: '#10ff50',
+      checked: true,
+    });
+    const tweetCompositionToggle = ui.createCheckboxRow({
+      label: 'Tweet composition',
+      description: 'Show live gematria values while composing tweets.',
+      accent: '#10ff50',
+      checked: true,
+    });
     autoSelectionInput = selectionToggle.input;
-    behaviorPanel.body.appendChild(selectionToggle.root);
+    tweetOverlayInput = tweetOverlayToggle.input;
+    tweetCompositionInput = tweetCompositionToggle.input;
+    behaviorField.appendChild(behaviorHeading);
+    behaviorField.appendChild(selectionToggle.row);
+    behaviorField.appendChild(tweetOverlayToggle.row);
+    behaviorField.appendChild(tweetCompositionToggle.row);
 
-    const interestingPanel = ui.createPanel({
-      title: 'Interesting Values',
-      collapsible: true,
-      defaultOpen: false,
-    });
-    const valuesLabel = document.createElement('div');
-    valuesLabel.className = 'gm-popup-label';
-    valuesLabel.textContent = 'Highlight values';
+    const interestingField = document.createElement('section');
+    interestingField.className = 'gm-popup-field';
+    const interestingHeading = document.createElement('h3');
+    interestingHeading.className = 'gm-popup-field-title';
+    interestingHeading.textContent = 'Interesting values';
 
-    const interestingField = document.createElement('div');
-    interestingField.className = 'gm-popup-pill-input';
-
-    interestingPillsEl = document.createElement('div');
-    interestingPillsEl.className = 'gm-popup-pill-list';
-
-    interestingInputEl = ui.createInput({
-      type: 'text',
-      className: 'gm-popup-pill-entry',
+    interestingValuesInput = ui.createNumericPillInput({
+      className: 'gm-popup-pill-input',
+      listClassName: 'gm-popup-pill-list',
+      entryClassName: 'gm-popup-pill-entry',
+      pillClassName: 'gm-popup-pill',
       placeholder: 'Enter values',
-      spellcheck: false,
+      values: settings.interestingValues,
     });
-    interestingField.appendChild(interestingPillsEl);
-    interestingField.appendChild(interestingInputEl);
 
     const valuesHint = document.createElement('p');
     valuesHint.className = 'gm-popup-hint';
-    valuesHint.textContent = 'Type numbers, then press comma, space, tab, or enter.';
+    valuesHint.textContent = 'Separate numbers with commas, spaces, or new lines.';
 
-    interestingPanel.body.appendChild(valuesLabel);
-    interestingPanel.body.appendChild(interestingField);
-    interestingPanel.body.appendChild(valuesHint);
+    interestingField.appendChild(interestingHeading);
+    interestingField.appendChild(interestingValuesInput.root);
+    interestingField.appendChild(valuesHint);
 
-    const cypherPanel = ui.createPanel({
-      title: 'Cyphers',
-      collapsible: true,
-      defaultOpen: false,
-    });
-
+    const cypherField = document.createElement('section');
+    cypherField.className = 'gm-popup-field';
     const cypherLabelRow = document.createElement('div');
     cypherLabelRow.className = 'gm-popup-label-row';
 
-    const cypherLabel = document.createElement('span');
-    cypherLabel.className = 'gm-popup-label';
-    cypherLabel.textContent = 'Enabled';
+    const cypherHeading = document.createElement('h3');
+    cypherHeading.className = 'gm-popup-field-title';
+    cypherHeading.textContent = 'Enabled cyphers';
 
     cypherCountEl = document.createElement('span');
     cypherCountEl.className = 'gm-popup-count';
 
-    cypherLabelRow.appendChild(cypherLabel);
+    cypherLabelRow.appendChild(cypherHeading);
     cypherLabelRow.appendChild(cypherCountEl);
 
     cypherListEl = document.createElement('div');
     cypherListEl.className = 'gm-popup-list';
 
-    cypherPanel.body.appendChild(cypherLabelRow);
-    cypherPanel.body.appendChild(cypherListEl);
+    cypherField.appendChild(cypherLabelRow);
+    cypherField.appendChild(cypherListEl);
+
+    settingsPanel.body.appendChild(behaviorField);
+    settingsPanel.body.appendChild(interestingField);
+    settingsPanel.body.appendChild(cypherField);
 
     const savedLink = document.createElement('a');
     savedLink.href = '#';
@@ -501,16 +556,14 @@
     savedLink.textContent = 'View saved items';
     savedLink.addEventListener('click', event => {
       event.preventDefault();
-      openSavedPage();
+      void openSavedPage();
     });
 
     saveStatusEl = document.createElement('div');
     saveStatusEl.className = 'gm-popup-status';
 
     popupRoot.appendChild(selectedPanel.root);
-    popupRoot.appendChild(behaviorPanel.root);
-    popupRoot.appendChild(interestingPanel.root);
-    popupRoot.appendChild(cypherPanel.root);
+    popupRoot.appendChild(settingsPanel.root);
     popupRoot.appendChild(savedLink);
     popupRoot.appendChild(saveStatusEl);
   }
@@ -521,6 +574,7 @@
     renderCypherList();
     bindInterestingValues();
     bindSelectionToggle();
+    bindTwitterFeatureToggles();
     await refreshSelectedTextPreview({ forcePopulate: true });
   }
 

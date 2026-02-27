@@ -45,6 +45,7 @@ import {
 } from './components/numogram/NumogramIcons'
 import { ShortcutsModal } from './components/numogram/ShortcutsModal'
 import { SourcesFooter } from './components/numogram/SourcesFooter'
+import { CyberPageHeader } from './components/ui/CyberPageHeader'
 
 /* ═══════════════════════════════════════════════════════════════
    THE NUMOGRAM — The Decimal Labyrinth (CCRU)
@@ -83,6 +84,20 @@ type HistorySnapshot = {
   planetDate: string
   orbiting: boolean
   labelVisibility: LabelVisibility
+}
+
+function toggleTerminalSelection(prev: Set<number>, terminals: Iterable<number>): Set<number> {
+  const terminalList = Array.from(new Set(terminals))
+  const next = new Set(prev)
+  const hasAnySelected = terminalList.some(zone => next.has(zone))
+
+  if (hasAnySelected) {
+    terminalList.forEach(zone => next.delete(zone))
+  } else {
+    terminalList.forEach(zone => next.add(zone))
+  }
+
+  return next
 }
 
 export default function NumogramPage() {
@@ -589,12 +604,7 @@ export default function NumogramPage() {
   }, [])
 
   const onToggleSyzygyPair = useCallback((a: number, b: number) => {
-    setSelZones(prev => {
-      const next = new Set(prev)
-      if (next.has(a) && next.has(b)) { next.delete(a); next.delete(b) }
-      else { next.add(a); next.add(b) }
-      return next
-    })
+    setSelZones(prev => toggleTerminalSelection(prev, [a, b]))
   }, [])
 
   const onSelectRegion = useCallback((r: Region | null) => {
@@ -618,31 +628,11 @@ export default function NumogramPage() {
   }, [])
 
   const onSelectCurrent = useCallback((from: number, to: number) => {
-    const terminals = new Set<number>([from, 9 - from, to])
-    setSelZones(prev => {
-      const next = new Set(prev)
-      const currentSelected = Array.from(terminals).every(z => next.has(z))
-      if (currentSelected) {
-        terminals.forEach(z => next.delete(z))
-      } else {
-        terminals.forEach(z => next.add(z))
-      }
-      return next
-    })
+    setSelZones(prev => toggleTerminalSelection(prev, [from, 9 - from, to]))
   }, [])
 
   const onSelectGate = useCallback((from: number, to: number) => {
-    const terminals = new Set<number>([from, to])
-    setSelZones(prev => {
-      const next = new Set(prev)
-      const gateSelected = Array.from(terminals).every(z => next.has(z))
-      if (gateSelected) {
-        terminals.forEach(z => next.delete(z))
-      } else {
-        terminals.forEach(z => next.add(z))
-      }
-      return next
-    })
+    setSelZones(prev => toggleTerminalSelection(prev, [from, to]))
   }, [])
 
   const onClearSelection = useCallback(() => {
@@ -1523,7 +1513,6 @@ export default function NumogramPage() {
   // ── Render ─────────────────────────────────────────────────
   return (
     <div className="h-screen overflow-hidden bg-[#060609] text-gray-300 flex flex-col items-center justify-center px-4 py-8 font-mono select-none relative">
-
       {/* === Fixed top bar === */}
       <div className="fixed top-0 left-0 right-0 z-40 flex flex-col items-center pt-3 pb-1 pointer-events-none"
         style={{ background: 'linear-gradient(180deg, #060609 60%, transparent 100%)' }}
@@ -1627,6 +1616,18 @@ export default function NumogramPage() {
           filter: introPhase === 'title' ? 'blur(0px)' : 'blur(1px)',
         }}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/numogram-logo.svg"
+          alt=""
+          className="mb-4 w-20 md:w-28"
+          style={{
+            filter: introPhase === 'title'
+              ? 'drop-shadow(0 0 20px rgba(16,255,80,0.5)) drop-shadow(0 0 40px rgba(16,255,80,0.2))'
+              : 'drop-shadow(0 0 4px rgba(16,255,80,0.1))',
+            transition: 'filter 1.2s ease',
+          }}
+        />
         <h1
           className="text-4xl md:text-6xl tracking-[0.35em] text-gray-300 uppercase font-mono"
           style={{
@@ -1733,21 +1734,12 @@ export default function NumogramPage() {
         className="fixed z-[46] font-mono pointer-events-auto"
         style={{ left: panelHeaderLeft, top: 14, width: panelHeaderWidth }}
       >
-        <div
-          className="px-2.5 py-1.5"
-          style={{
-            border: '1px solid rgba(16,255,80,0.16)',
-            background: 'linear-gradient(180deg, rgba(8,12,20,0.82) 0%, rgba(4,7,13,0.9) 100%)',
-          }}
-        >
-          <div className="flex items-center gap-1.5">
-            <span
-              className="text-[9px] tracking-[0.28em] uppercase"
-              style={{ color: '#10ff50', textShadow: '0 0 6px rgba(16,255,80,0.3)' }}
-            >
-              Numogram
-            </span>
-            <div className="ml-auto flex items-center gap-1">
+        <CyberPageHeader
+          icon="/numogram-logo.svg"
+          title="Numogram"
+          description="Decimal Labyrinth"
+          actions={(
+            <div className="flex items-center gap-1">
               <button
                 className="px-1.5 py-1"
                 style={{
@@ -1793,8 +1785,8 @@ export default function NumogramPage() {
                 <ShareIcon clr={shareCopied ? '#10ff50' : '#6b7280'} />
               </button>
             </div>
-          </div>
-        </div>
+          )}
+        />
       </div>
 
       {/* === Panels === */}

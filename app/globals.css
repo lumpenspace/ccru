@@ -120,6 +120,121 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   animation: layout-glitch-overlay 360ms steps(2, end);
 }
 
+/* Full-page CRT glitch used during route transitions */
+.page-nav-crt-glitch-content {
+  animation: page-nav-crt-shift 320ms steps(2, end);
+  will-change: transform, filter;
+}
+
+.page-nav-crt-glitch-content :where(
+  h1, h2, h3, h4, h5, h6,
+  p, span, a, button, label, li, dt, dd,
+  strong, em, small, code, pre, blockquote,
+  th, td, legend, figcaption, div, text, tspan
+),
+.layout-switch-glitch :where(
+  h1, h2, h3, h4, h5, h6,
+  p, span, a, button, label, li, dt, dd,
+  strong, em, small, code, pre, blockquote,
+  th, td, legend, figcaption, div, text, tspan
+) {
+  animation: page-nav-crt-text-glitch 320ms steps(2, end);
+  will-change: filter, text-shadow;
+}
+
+.page-nav-crt-glitch-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9997;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 54, 143, 0.15) 0%,
+      rgba(0, 0, 0, 0) 34%,
+      rgba(27, 233, 255, 0.18) 68%,
+      rgba(0, 0, 0, 0) 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.09) 0px,
+      rgba(255, 255, 255, 0.09) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  mix-blend-mode: screen;
+  animation: page-nav-crt-overlay 320ms steps(2, end);
+}
+
+@keyframes page-nav-crt-shift {
+  0% {
+    transform: translate3d(0, 0, 0) skewX(0deg);
+    filter: none;
+  }
+  24% {
+    transform: translate3d(-7px, 0, 0) skewX(0.9deg);
+    filter: saturate(1.32) hue-rotate(-22deg);
+  }
+  52% {
+    transform: translate3d(6px, -1px, 0) skewX(-0.8deg);
+    filter: contrast(1.2) hue-rotate(19deg);
+  }
+  78% {
+    transform: translate3d(-4px, 1px, 0) skewX(0.5deg);
+    filter: saturate(1.1);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) skewX(0deg);
+    filter: none;
+  }
+}
+
+@keyframes page-nav-crt-overlay {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  22% {
+    opacity: 0.7;
+    transform: translate3d(-14px, 0, 0);
+  }
+  48% {
+    opacity: 0.45;
+    transform: translate3d(11px, 0, 0);
+  }
+  75% {
+    opacity: 0.25;
+    transform: translate3d(-6px, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes page-nav-crt-text-glitch {
+  0% {
+    filter: none;
+    text-shadow: none;
+  }
+  24% {
+    filter: hue-rotate(-18deg) saturate(1.22);
+    text-shadow:
+      -1px 0 rgba(255, 54, 143, 0.65),
+      1px 0 rgba(27, 233, 255, 0.6);
+  }
+  54% {
+    filter: hue-rotate(15deg) contrast(1.15);
+    text-shadow:
+      1px 0 rgba(255, 54, 143, 0.58),
+      -1px 0 rgba(27, 233, 255, 0.52);
+  }
+  100% {
+    filter: none;
+    text-shadow: none;
+  }
+}
+
 @keyframes layout-glitch-shift {
   0% {
     transform: translate3d(0, 0, 0) skewX(0deg);
@@ -168,11 +283,26 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .layout-switch-glitch,
-  .layout-switch-glitch-overlay {
+  .layout-switch-glitch-overlay,
+  .page-nav-crt-glitch-content,
+  .page-nav-crt-glitch-overlay,
+  .page-nav-crt-glitch-content :where(
+    h1, h2, h3, h4, h5, h6,
+    p, span, a, button, label, li, dt, dd,
+    strong, em, small, code, pre, blockquote,
+    th, td, legend, figcaption, div, text, tspan
+  ),
+  .layout-switch-glitch :where(
+    h1, h2, h3, h4, h5, h6,
+    p, span, a, button, label, li, dt, dd,
+    strong, em, small, code, pre, blockquote,
+    th, td, legend, figcaption, div, text, tspan
+  ) {
     animation: none;
   }
 
-  .layout-switch-glitch-overlay {
+  .layout-switch-glitch-overlay,
+  .page-nav-crt-glitch-overlay {
     opacity: 0;
   }
 }

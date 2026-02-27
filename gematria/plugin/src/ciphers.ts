@@ -184,8 +184,10 @@
   namespace.ciphers = ciphers;
   namespace.defaultSettings = {
     enabledCypherIds: ['alphanumeric-qabbala', 'synx', 'qwerty'],
-    interestingValues: [33, 93, 119],
+    interestingValues: [93, 137, 156, 111, 222, 333, 444, 555, 666, 777, 888, 999],
     autoShowSelectionOnSelect: false,
+    enableTweetOverlay: true,
+    enableTweetComposition: true,
   };
   namespace.storageKeys = {
     settings: 'gematria_settings',

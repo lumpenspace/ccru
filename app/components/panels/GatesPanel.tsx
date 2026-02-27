@@ -27,16 +27,30 @@ export function GatesPanel({ hlZones, selZones, onHoverInfo, onSelectGate, onTog
     cum: number
     desc: string
     detail: string
+    isSelected: boolean
+    isSemiSelected: boolean
     isHighlighted: boolean
   }
   const items: GateItem[] = GATE_LIST.map(g => ({
     ...g,
-    isHighlighted: hlZones.has(g.from) || hlZones.has(g.to),
+    ...(() => {
+      const terminalCount = g.from === g.to ? 1 : 2
+      const selectedCount = g.from === g.to
+        ? (selZones.has(g.from) ? 1 : 0)
+        : (selZones.has(g.from) ? 1 : 0) + (selZones.has(g.to) ? 1 : 0)
+      const isSelected = selectedCount === terminalCount
+      const isSemiSelected = selectedCount > 0 && !isSelected
+      return {
+        isSelected,
+        isSemiSelected,
+        isHighlighted: isSelected || isSemiSelected || hlZones.has(g.from) || hlZones.has(g.to),
+      }
+    })(),
   }))
 
   const GateItemDisplay = ({ item }: SelectableListDisplayProps<GateItem>) => (
     <>
-      <PanelColorBar color="#cc44ff" active={item.isHighlighted} />
+      <PanelColorBar color="#cc44ff" active={item.isSelected || item.isSemiSelected || item.isHighlighted} />
       <span style={{ color: '#cc44ff', fontSize: '10px' }}>{item.name}</span>
       <div className="flex items-center gap-0.5 text-[8px]">
         <span style={{ color: ZONE_CLR[item.from] }}>{item.from}</span>
@@ -55,7 +69,7 @@ export function GatesPanel({ hlZones, selZones, onHoverInfo, onSelectGate, onTog
       onItemSelect={item => onSelectGate(item.from, item.to)}
       onItemMouseEnter={item => onHoverInfo({ type: 'gate', gate: item })}
       onItemMouseLeave={() => onHoverInfo(null)}
-      getItemOpacity={item => (item.isHighlighted ? 1 : 0.5)}
+      getItemOpacity={item => (item.isSelected ? 1 : item.isSemiSelected ? 0.8 : item.isHighlighted ? 0.65 : 0.5)}
       ItemDisplayComponent={GateItemDisplay}
     />
   )

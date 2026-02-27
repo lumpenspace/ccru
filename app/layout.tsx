@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Analytics } from "@vercel/analytics/next"
 import './globals.css'
+import { CrtNavigationTransitionProvider } from './components/navigation/CrtNavigationTransition'
 
 export const metadata: Metadata = {
   title: 'QLIPHOTH Systems',
@@ -27,7 +28,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}
+      <body>
+        <CrtNavigationTransitionProvider>{children}</CrtNavigationTransitionProvider>
         <Analytics />
       </body>
     </html>

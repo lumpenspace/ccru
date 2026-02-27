@@ -37,32 +37,70 @@ Each sentence is a unit of drift.
 This mirrors the CCRU category ciphers from cyphers.news.`
 
 const CYPHER_CODE = `<CypherHoverText cyphers={CCRU_CIPHERS} markdown={${JSON.stringify(SAMPLE_MD)}} />`
-const BUTTONS_CODE = `(
-  <>
-    <CyberButtonGroup>
-      <CyberButton active shortcut="g">Alpha</CyberButton>
-      <CyberButton shortcut="h">Beta</CyberButton>
-    </CyberButtonGroup>
-    <CyberButtonGroup>
-      <CyberButton shortcut="j">TC Off</CyberButton>
-      <CyberButton active shortcut="k">TC Assist</CyberButton>
-      <CyberButton shortcut="l">TC Full</CyberButton>
-    </CyberButtonGroup>
-  </>
-)`
-const RADIO_CHECKBOX_CODE = `(
-  <>
-    <div className="flex flex-wrap items-center gap-4">
-      <CyberRadio name="showcase" checked label="Left" onChange={() => {}} />
-      <CyberRadio name="showcase" label="Right" onChange={() => {}} />
-    </div>
-    <div className="mt-2 flex flex-wrap gap-2">
-      <CyberCheckbox checked label="AQ" onChange={() => {}} accent="#facc15" />
-      <CyberCheckbox checked label="Synx" onChange={() => {}} accent="#22d3ee" />
-      <CyberCheckbox label="NQ" onChange={() => {}} />
-    </div>
-  </>
-)`
+const BUTTONS_CODE = `(() => {
+  function Demo() {
+    const [activeButton, setActiveButton] = useState('alpha')
+    const [tcMode, setTcMode] = useState('assist')
+
+    return (
+      <>
+        <CyberButtonGroup>
+          <CyberButton
+            active={activeButton === 'alpha'}
+            shortcut="g"
+            onClick={() => setActiveButton('alpha')}
+          >
+            Alpha
+          </CyberButton>
+          <CyberButton
+            active={activeButton === 'beta'}
+            shortcut="h"
+            onClick={() => setActiveButton('beta')}
+          >
+            Beta
+          </CyberButton>
+        </CyberButtonGroup>
+        <CyberButtonGroup>
+          <CyberButton active={tcMode === 'off'} shortcut="j" onClick={() => setTcMode('off')}>
+            TC Off
+          </CyberButton>
+          <CyberButton active={tcMode === 'assist'} shortcut="k" onClick={() => setTcMode('assist')}>
+            TC Assist
+          </CyberButton>
+          <CyberButton active={tcMode === 'full'} shortcut="l" onClick={() => setTcMode('full')}>
+            TC Full
+          </CyberButton>
+        </CyberButtonGroup>
+      </>
+    )
+  }
+
+  return <Demo />
+})()`
+const RADIO_CHECKBOX_CODE = `(() => {
+  function Demo() {
+    const [side, setSide] = useState('left')
+    const [chips, setChips] = useState({ aq: true, synx: true, nq: false })
+
+    const toggle = key => setChips(prev => ({ ...prev, [key]: !prev[key] }))
+
+    return (
+      <>
+        <div className="flex flex-wrap items-center gap-4">
+          <CyberRadio name="showcase" checked={side === 'left'} label="Left" onChange={() => setSide('left')} />
+          <CyberRadio name="showcase" checked={side === 'right'} label="Right" onChange={() => setSide('right')} />
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <CyberCheckbox checked={chips.aq} label="AQ" onChange={() => toggle('aq')} accent="#facc15" />
+          <CyberCheckbox checked={chips.synx} label="Synx" onChange={() => toggle('synx')} accent="#22d3ee" />
+          <CyberCheckbox checked={chips.nq} label="NQ" onChange={() => toggle('nq')} />
+        </div>
+      </>
+    )
+  }
+
+  return <Demo />
+})`
 const POPOVER_CODE = `(
   <>
     <GlitchText text="Signal Stable" color="#10ff50" />
@@ -72,20 +110,58 @@ const POPOVER_CODE = `(
     />
   </>
 )`
-const INPUT_CODE = `(
-  <>
-    <CyberInput label="Phrase" value="CCRU numogram" onChange={() => {}} placeholder="Type phrase..." />
-    <CyberTextArea label="Notes (markdown)" value={${JSON.stringify(SAMPLE_MD)}} onChange={() => {}} rows={5} />
-    <CyberTextArea label="Interesting values" value="33, 93, 119" onChange={() => {}} pillCollection rows={3} />
-  </>
-)`
-const PILL_CODE = `(
-  <div className="flex flex-wrap gap-2">
-    <Pill accent="#facc15">AQ 311</Pill>
-    <Pill accent="#22d3ee">Synx 2201</Pill>
-    <Pill accent="#fb7185" onClose={() => {}}>666</Pill>
-  </div>
-)`
+const INPUT_CODE = `(() => {
+  function Demo() {
+    const [phrase, setPhrase] = useState('CCRU numogram')
+    const [notes, setNotes] = useState(${JSON.stringify(SAMPLE_MD)})
+    const [values, setValues] = useState('33, 93, 119')
+
+    return (
+      <>
+        <CyberInput label="Phrase" value={phrase} onChange={setPhrase} placeholder="Type phrase..." />
+        <CyberTextArea label="Notes (markdown)" value={notes} onChange={setNotes} rows={5} />
+        <CyberTextArea label="Interesting values" value={values} onChange={setValues} pillCollection rows={3} />
+      </>
+    )
+  }
+
+  return <Demo />
+})`
+const PILL_CODE = `(() => {
+  function Demo() {
+    const initialPills = [
+      { id: 'aq', accent: '#facc15', label: 'AQ 311' },
+      { id: 'synx', accent: '#22d3ee', label: 'Synx 2201' },
+      { id: 'sat', accent: '#fb7185', label: '666' },
+    ]
+    const [pills, setPills] = useState(initialPills)
+
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {pills.map(pill => (
+            <Pill
+              key={pill.id}
+              accent={pill.accent}
+              onClose={() => setPills(prev => prev.filter(entry => entry.id !== pill.id))}
+            >
+              {pill.label}
+            </Pill>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="text-[10px] uppercase tracking-[0.12em] text-gray-500 hover:text-gray-300"
+          onClick={() => setPills(initialPills)}
+        >
+          Reset Pills
+        </button>
+      </div>
+    )
+  }
+
+  return <Demo />
+})`
 const FIGURE_CODE = `(
   <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
     <Figure title="AQ" value={311} accent="#facc15" showDisplaySystem />
@@ -177,6 +253,25 @@ const CODEBLOCK_CODE = `<CyberCodeBlock
   return sum
 }\`}
 />`
+
+const INSTALL_GITHUB_CODE = `npm install git+https://github.com/lumpenspace/ccru.git`
+
+const CYPHER_IMPORT = `import { CypherHoverText, CCRU_CIPHERS } from 'ccru/components'`
+const BUTTONS_IMPORT = `import { CyberButton, CyberButtonGroup } from 'ccru/components'`
+const RADIO_CHECKBOX_IMPORT = `import { CyberRadio, CyberCheckbox } from 'ccru/components'`
+const POPOVER_IMPORT = `import { GlitchText, CyberPopover } from 'ccru/components'`
+const INPUT_IMPORT = `import { CyberInput, CyberTextArea } from 'ccru/components'`
+const PILL_IMPORT = `import { Pill } from 'ccru/components'`
+const FIGURE_IMPORT = `import { Figure } from 'ccru/components'`
+const CONTAINERS_IMPORT = `import {
+  CyberContainer,
+  CyberPanel,
+  CyberGridGroup,
+  CyberStackGroup,
+} from 'ccru/components'`
+const DATA_DISPLAY_IMPORT = `import { StatusDot, DataRow, NeonDivider, SectionFrame } from 'ccru/components'`
+const GLITCH_IMPORT = `import { GlitchText, GlitchTransition } from 'ccru/components'`
+const CODEBLOCK_IMPORT = `import { CyberCodeBlock } from 'ccru/components'`
 
 const CYPHER_PROPS = `type HoverCypher = {
   id?: string
@@ -361,9 +456,43 @@ type SplitShowcaseCardProps = {
   code: string
   onCodeChange: (code: string) => void
   scope: Record<string, unknown>
+  importCode: string
   propsTypes: string
   heightClassName?: string
   codeHeightClassName?: string
+}
+
+type HighlightCodeProps = {
+  code: string
+  language: string
+  className?: string
+}
+
+function HighlightCode({ code, language, className = '' }: HighlightCodeProps) {
+  return (
+    <Highlight code={code.trim()} language={language} theme={themes.vsDark}>
+      {({ className: hlClass, style, tokens, getLineProps, getTokenProps }) => (
+        <pre
+          className={`mt-1.5 overflow-auto border border-[#1e293b] bg-[#050a11] py-2 pl-1 pr-2 text-[11px] leading-5 ${hlClass} ${className}`}
+          style={{ ...style, background: 'transparent' }}
+        >
+          {tokens.map((line, i) => (
+            <div key={i} {...getLineProps({ line })}>
+              <span
+                className="mr-2 inline-block w-5 select-none text-right text-[10px]"
+                style={{ color: '#334155' }}
+              >
+                {i + 1}
+              </span>
+              {line.map((token, j) => (
+                <span key={j} {...getTokenProps({ token })} />
+              ))}
+            </div>
+          ))}
+        </pre>
+      )}
+    </Highlight>
+  )
 }
 
 function SplitShowcaseCard({
@@ -371,11 +500,13 @@ function SplitShowcaseCard({
   code,
   onCodeChange,
   scope,
+  importCode,
   propsTypes,
   heightClassName = 'h-[420px]',
   codeHeightClassName = 'h-[220px]',
 }: SplitShowcaseCardProps) {
-  const [propsOpen, setPropsOpen] = useState(true)
+  const [importOpen, setImportOpen] = useState(false)
+  const [propsOpen, setPropsOpen] = useState(false)
 
   return (
     <div className={`${heightClassName} overflow-hidden border border-[#1e293b] bg-[#060b12]`}>
@@ -386,29 +517,27 @@ function SplitShowcaseCard({
               <button
                 type="button"
                 className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] text-gray-500 hover:text-gray-300 transition-colors"
+                onClick={() => setImportOpen(v => !v)}
+              >
+                <span className="w-3 text-center text-[#10ff50]/60">{importOpen ? '▾' : '▸'}</span>
+                <span>Import</span>
+              </button>
+              {importOpen && (
+                <>
+                  <div className="mt-1.5 text-[9px] uppercase tracking-[0.15em] text-gray-600">Import</div>
+                  <HighlightCode code={importCode} language="typescript" />
+                </>
+              )}
+              <button
+                type="button"
+                className="mt-2.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] text-gray-500 hover:text-gray-300 transition-colors"
                 onClick={() => setPropsOpen(v => !v)}
               >
                 <span className="w-3 text-center text-[#10ff50]/60">{propsOpen ? '▾' : '▸'}</span>
                 <span>Props</span>
               </button>
               {propsOpen && (
-                <Highlight code={propsTypes.trim()} language="typescript" theme={themes.vsDark}>
-                  {({ className: hlClass, style, tokens, getLineProps, getTokenProps }) => (
-                    <pre
-                      className={`mt-1.5 overflow-auto border border-[#1e293b] bg-[#050a11] py-2 pl-1 pr-2 text-[11px] leading-5 ${hlClass}`}
-                      style={{ ...style, background: 'transparent' }}
-                    >
-                      {tokens.map((line, i) => (
-                        <div key={i} {...getLineProps({ line })}>
-                          <span className="inline-block w-5 text-right mr-2 select-none text-[10px]" style={{ color: '#334155' }}>{i + 1}</span>
-                          {line.map((token, j) => (
-                            <span key={j} {...getTokenProps({ token })} />
-                          ))}
-                        </div>
-                      ))}
-                    </pre>
-                  )}
-                </Highlight>
+                <HighlightCode code={propsTypes} language="typescript" />
               )}
               <div className="mt-2.5 mb-1 text-[9px] uppercase tracking-[0.15em] text-gray-600">Editor</div>
               <div className={`overflow-auto border border-[#1e293b] bg-[#050a11] p-2 ${codeHeightClassName}`}>
@@ -457,6 +586,9 @@ export default function ComponentsShowcasePage() {
   const [dataDisplayCode, setDataDisplayCode] = useState(DATA_DISPLAY_CODE)
   const [glitchCode, setGlitchCode] = useState(GLITCH_CODE)
   const [codeBlockCode, setCodeBlockCode] = useState(CODEBLOCK_CODE)
+  const glitchTitle = (text: string) => (
+    <GlitchText text={text} className="text-[10px] tracking-[0.16em]" />
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -472,126 +604,145 @@ export default function ComponentsShowcasePage() {
     <main className="min-h-screen bg-[#05070d] px-4 py-6 font-mono text-gray-200 md:py-8">
       <div className="mx-auto w-full max-w-[1160px] space-y-6">
         <CyberPageHeader
-          title="Components Showcase"
+          icon="/icon.svg"
+          title={<GlitchText text="Components Showcase" className="text-[9px] tracking-[0.28em]" />}
           description="Live-editable component library"
         />
 
-        <CyberCardContainer title="Cypher Hover React Component" collapsible>
+        <CyberCardContainer title={glitchTitle('Installation')} collapsible defaultOpen>
+          <div className="border border-[#1e293b] bg-[#060b12] p-3">
+            <div className="text-[9px] uppercase tracking-[0.15em] text-gray-600">Install From GitHub URL</div>
+            <HighlightCode code={INSTALL_GITHUB_CODE} language="bash" />
+          </div>
+        </CyberCardContainer>
+
+        <CyberCardContainer title={glitchTitle('Cypher Hover React Component')} collapsible defaultOpen>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={cypherCode}
             onCodeChange={setCypherCode}
             scope={{ CypherHoverText, CCRU_CIPHERS }}
+            importCode={CYPHER_IMPORT}
             propsTypes={CYPHER_PROPS}
             heightClassName="h-[460px]"
             codeHeightClassName="h-[200px]"
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Buttons + Group" collapsible>
+        <CyberCardContainer title={glitchTitle('Buttons + Group')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={buttonsCode}
             onCodeChange={setButtonsCode}
-            scope={{ CyberButton, CyberButtonGroup }}
+            scope={{ CyberButton, CyberButtonGroup, useState }}
+            importCode={BUTTONS_IMPORT}
             propsTypes={BUTTONS_PROPS}
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Radio + Checkbox Chips" collapsible>
+        <CyberCardContainer title={glitchTitle('Radio + Checkbox Chips')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={radioCode}
             onCodeChange={setRadioCode}
-            scope={{ CyberRadio, CyberCheckbox }}
+            scope={{ CyberRadio, CyberCheckbox, useState }}
+            importCode={RADIO_CHECKBOX_IMPORT}
             propsTypes={RADIO_CHECKBOX_PROPS}
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Popover + Utilities" collapsible>
+        <CyberCardContainer title={glitchTitle('Popover + Utilities')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={popoverCode}
             onCodeChange={setPopoverCode}
             scope={{ GlitchText, CyberPopover }}
+            importCode={POPOVER_IMPORT}
             propsTypes={POPOVER_PROPS}
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Input + Text Fields" collapsible>
+        <CyberCardContainer title={glitchTitle('Input + Text Fields')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={inputCode}
             onCodeChange={setInputCode}
-            scope={{ CyberInput, CyberTextArea }}
+            scope={{ CyberInput, CyberTextArea, useState }}
+            importCode={INPUT_IMPORT}
             propsTypes={INPUT_PROPS}
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Pill" collapsible>
+        <CyberCardContainer title={glitchTitle('Pill')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={pillCode}
             onCodeChange={setPillCode}
-            scope={{ Pill }}
+            scope={{ Pill, useState }}
+            importCode={PILL_IMPORT}
             propsTypes={PILL_PROPS}
             heightClassName="h-[360px]"
             codeHeightClassName="h-[170px]"
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Figure" collapsible>
+        <CyberCardContainer title={glitchTitle('Figure')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={figureCode}
             onCodeChange={setFigureCode}
             scope={{ Figure }}
+            importCode={FIGURE_IMPORT}
             propsTypes={FIGURE_PROPS}
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Containers + Panels + Headers" collapsible>
+        <CyberCardContainer title={glitchTitle('Containers + Panels + Headers')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={containersCode}
             onCodeChange={setContainersCode}
             scope={{ CyberContainer, CyberPanel, CyberGridGroup, CyberStackGroup }}
+            importCode={CONTAINERS_IMPORT}
             propsTypes={CONTAINERS_PROPS}
             heightClassName="h-[500px]"
             codeHeightClassName="h-[190px]"
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Status + Data Display" collapsible>
+        <CyberCardContainer title={glitchTitle('Status + Data Display')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={dataDisplayCode}
             onCodeChange={setDataDisplayCode}
             scope={{ StatusDot, DataRow, NeonDivider, SectionFrame }}
+            importCode={DATA_DISPLAY_IMPORT}
             propsTypes={DATA_DISPLAY_PROPS}
             heightClassName="h-[500px]"
             codeHeightClassName="h-[240px]"
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Glitch Effects" collapsible>
+        <CyberCardContainer title={glitchTitle('Glitch Effects')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={glitchCode}
             onCodeChange={setGlitchCode}
             scope={{ GlitchText, GlitchTransition }}
+            importCode={GLITCH_IMPORT}
             propsTypes={GLITCH_PROPS}
             heightClassName="h-[400px]"
             codeHeightClassName="h-[180px]"
           />
         </CyberCardContainer>
 
-        <CyberCardContainer title="Code Block" collapsible>
+        <CyberCardContainer title={glitchTitle('Code Block')} collapsible defaultOpen={false}>
           <SplitShowcaseCard
             splitVertical={splitVertical}
             code={codeBlockCode}
             onCodeChange={setCodeBlockCode}
             scope={{ CyberCodeBlock }}
+            importCode={CODEBLOCK_IMPORT}
             propsTypes={CODEBLOCK_PROPS}
             heightClassName="h-[420px]"
             codeHeightClassName="h-[200px]"

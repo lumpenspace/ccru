@@ -1,0 +1,13 @@
+type XenoteInput = number | string;
+export declare function leastFactor(n: number): number;
+export declare function isPrime(n: number): boolean;
+export declare function nextPrime(value: number): number;
+export declare function indexOfPrime(n: number): number;
+export declare function nthPrime(index: number): number;
+export declare function factorInteger(n: number): number[];
+export declare function xenotateNumber(n: number): string;
+export declare function xenotationToNumber(s: string): number;
+export declare function xenote(value: XenoteInput): string | number;
+export declare function formatXenotationForDisplay(n: number): string;
+export declare function xenotationByZone(): Record<number, string>;
+export {};

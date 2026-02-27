@@ -4,9 +4,48 @@ This repository currently centers on an interactive **Numogram** implementation 
 
 Over time, this repo will also include other CCRU-related experiments, tools, notes, and code projects beyond the Numogram.
 
-## Numogram
+## Live URLs
 
-Explore the live Numogram here: [num.qliphoth.systems](https://num.qliphoth.systems)
+- Home: [num.qliphoth.systems](https://num.qliphoth.systems)
+- Numogram: [num.qliphoth.systems/numogram](https://num.qliphoth.systems/numogram)
+- Components: [num.qliphoth.systems/components](https://num.qliphoth.systems/components)
+- Gematria: [num.qliphoth.systems/gematria](https://num.qliphoth.systems/gematria)
+- Gematria Plugin: [num.qliphoth.systems/gematria/plugin](https://num.qliphoth.systems/gematria/plugin)
+- Plugin ZIP: [num.qliphoth.systems/downloads/ccru-gematria-plugin.zip](https://num.qliphoth.systems/downloads/ccru-gematria-plugin.zip)
+
+## Component Library (Install From Repo)
+
+Install directly from GitHub:
+
+```bash
+npm install github:lumpenspace/ccru
+```
+
+Then import from `ccru/components`:
+
+```tsx
+import { CyberButton, CyberPanel, CypherHoverText, CCRU_CIPHERS } from 'ccru/components'
+```
+
+Notes:
+
+- Components are React/Tailwind-oriented UI primitives.
+- This package export is built during install via the `prepare` script.
+
+## Gematria Plugin
+
+The repo ships a Chrome extension (`gematria/plugin`) for in-page gematria overlays and saved phrase workflow.
+
+- Source: [github.com/lumpenspace/ccru/tree/main/gematria/plugin](https://github.com/lumpenspace/ccru/tree/main/gematria/plugin)
+- Docs page: [num.qliphoth.systems/gematria/plugin](https://num.qliphoth.systems/gematria/plugin)
+- Download ZIP: [num.qliphoth.systems/downloads/ccru-gematria-plugin.zip](https://num.qliphoth.systems/downloads/ccru-gematria-plugin.zip)
+
+Quick install:
+
+1. Download and extract the ZIP.
+2. Open `chrome://extensions`.
+3. Enable Developer mode.
+4. Click Load unpacked and select the extracted extension folder.
 
 ### Demo Video
 
@@ -41,8 +80,10 @@ This is a growing CCRU workspace. In addition to the Numogram, this repository w
 
 - `app/page.tsx` - primary Numogram interface
 - `app/components/` - UI and panel components
+- `component-library/index.ts` - exported installable components entrypoint (`ccru/components`)
 - `app/data/` - syzygies, currents, gates, and demon datasets
 - `app/lib/` - math, geometry, and helper logic
+- `gematria/plugin/` - Chrome extension source (unpacked build target)
 - `demo.mov` - local demo video asset
 
 ## Roadmap

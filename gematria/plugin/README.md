@@ -16,7 +16,7 @@ Unpacked extension source for the standalone gematria module.
 - Composer values near the audience selector
 - Right-click context menu for selected text on non-Twitter pages
 - Local save action for phrase/value/link entries
-- Saved list renderer on `/gematria/saved`
+- Saved list renderer on `/gematria`
 
 ## Main files
 

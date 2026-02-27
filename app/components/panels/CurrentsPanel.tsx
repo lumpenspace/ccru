@@ -20,22 +20,26 @@ export function CurrentsPanel({ selZones, hlZones, onHoverInfo, onSelectCurrent 
     to: number
     label: string
     desc: string
+    isSemiSelected: boolean
     isSelected: boolean
     isHighlighted: boolean
   }
   const items: CurrentItem[] = CURRENTS.map(c => {
-    const partner = 9 - c.from
-    const isSelected = selZones.has(c.from) && selZones.has(c.to) && selZones.has(partner)
+    const terminals = Array.from(new Set([c.from, c.to, 9 - c.from]))
+    const selectedCount = terminals.reduce((count, zone) => count + (selZones.has(zone) ? 1 : 0), 0)
+    const isSelected = selectedCount === terminals.length
+    const isSemiSelected = selectedCount > 0 && !isSelected
     return {
       ...c,
+      isSemiSelected,
       isSelected,
-      isHighlighted: isSelected || hlZones.has(c.from) || hlZones.has(c.to) || hlZones.has(partner),
+      isHighlighted: isSelected || isSemiSelected || terminals.some(zone => hlZones.has(zone)),
     }
   })
 
   const CurrentItemDisplay = ({ item }: SelectableListDisplayProps<CurrentItem>) => (
     <>
-      <PanelColorBar color="#22ee66" active={item.isSelected || item.isHighlighted} />
+      <PanelColorBar color="#22ee66" active={item.isSelected || item.isSemiSelected || item.isHighlighted} />
       <span style={{ color: '#22ee66', fontSize: '10px' }}>{item.name}</span>
       <div className="flex items-center gap-0.5 text-[8px]">
         <span style={{ color: ZONE_CLR[item.from] }}>{item.from}</span>
@@ -53,7 +57,7 @@ export function CurrentsPanel({ selZones, hlZones, onHoverInfo, onSelectCurrent 
       onItemSelect={item => onSelectCurrent(item.from, item.to)}
       onItemMouseEnter={item => onHoverInfo({ type: 'current', data: item })}
       onItemMouseLeave={() => onHoverInfo(null)}
-      getItemOpacity={item => (item.isSelected ? 1 : 0.5)}
+      getItemOpacity={item => (item.isSelected ? 1 : item.isSemiSelected ? 0.8 : item.isHighlighted ? 0.65 : 0.5)}
       ItemDisplayComponent={CurrentItemDisplay}
     />
   )

@@ -125,6 +125,8 @@ interface GematriaSettings {
   enabledCypherIds: string[]
   interestingValues: number[]
   autoShowSelectionOnSelect: boolean
+  enableTweetOverlay: boolean
+  enableTweetComposition: boolean
 }
 
 interface GematriaUtils {
@@ -169,6 +171,16 @@ interface GematriaUiSelectionRowResult {
   labelEl: HTMLSpanElement
 }
 
+interface GematriaUiNumericPillInput {
+  root: HTMLSpanElement
+  list: HTMLSpanElement
+  input: HTMLInputElement
+  getValues(): number[]
+  setValues(values: number[]): void
+  onChange(listener: (values: number[]) => void): () => void
+  focus(): void
+}
+
 interface GematriaUi {
   createPanel(options?: {
     title?: string
@@ -189,11 +201,20 @@ interface GematriaUi {
     spellcheck?: boolean
     value?: string
   }): HTMLTextAreaElement
+  createNumericPillInput(options?: {
+    className?: string
+    listClassName?: string
+    entryClassName?: string
+    pillClassName?: string
+    values?: number[]
+    placeholder?: string
+  }): GematriaUiNumericPillInput
   createBadge(options?: GematriaUiBadgeOptions): HTMLSpanElement
   createCheckboxRow(options?: {
     label?: string
     description?: string
     checked?: boolean
+    accent?: string
   }): GematriaUiCheckboxResult
   createSelectionRowWithPopup(options?: {
     label?: string

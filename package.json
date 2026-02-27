@@ -2,14 +2,28 @@
   "name": "ccru",
   "version": "0.1.0",
   "private": true,
+  "main": "dist/components/component-library/index.js",
+  "types": "dist/components/component-library/index.d.ts",
+  "exports": {
+    "./components": {
+      "types": "./dist/components/component-library/index.d.ts",
+      "default": "./dist/components/component-library/index.js"
+    }
+  },
+  "files": [
+    "dist/components/**",
+    "README.md"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test:share-image": "node scripts/share-image-self-check.mjs",
+    "build:components": "tsc --project tsconfig.components.json",
     "build:plugin": "tsc --project gematria/plugin/tsconfig.json",
-    "build:plugin-zip": "node scripts/build-plugin-zip.mjs"
+    "build:plugin-zip": "node scripts/build-plugin-zip.mjs",
+    "prepare": "npm run build:components"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

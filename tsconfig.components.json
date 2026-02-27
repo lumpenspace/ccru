@@ -1,0 +1,31 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "incremental": false,
+    "isolatedModules": false,
+    "jsx": "react-jsx",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": "dist/components",
+    "plugins": [],
+    "rootDir": ".",
+    "target": "es2019"
+  },
+  "include": [
+    "component-library/index.ts",
+    "app/components/ui/**/*.tsx",
+    "app/components/cyphers/CypherHoverText.tsx",
+    "app/cyphers/ccruCiphers.ts",
+    "app/cyphers/gematria.ts",
+    "app/lib/xenotation.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "gematria/plugin"
+  ]
+}
